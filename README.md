@@ -1,5 +1,7 @@
 # Solo Teams
 
+![Solo Teams](thumbnail.png)
+
 A Factorio 2.0 mod that gives each player their own force (team) with independent research, production statistics, and diplomacy. Players compete solo while sharing the same game world.
 
 ## Origin
