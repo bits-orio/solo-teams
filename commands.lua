@@ -4,7 +4,6 @@
 --
 -- Registers console commands:
 --   /platforms  - list all players and their platforms with GPS pings
---   /unstuck    - eject player from hub and teleport to a safe position
 
 local platforms_gui = require("platforms_gui")
 
@@ -34,31 +33,6 @@ function M.register()
             caller.print(msg)
         else
             game.print(msg)
-        end
-    end)
-
-    --- /unstuck - Eject the player from a vehicle (e.g. the platform hub)
-    --- and teleport them to the nearest non-colliding position.
-    commands.add_command("unstuck", "Get unstuck from a platform hub or vehicle", function(cmd)
-        if not cmd.player_index then return end
-        local player = game.get_player(cmd.player_index)
-        if not player or not player.valid then return end
-
-        -- Eject from vehicle (the hub acts like one when entered)
-        if player.vehicle then
-            player.vehicle.set_driver(nil)
-        end
-
-        if player.character and player.character.valid and player.physical_surface then
-            local safe_pos = player.physical_surface.find_non_colliding_position("character", player.physical_position, 20, 0.5)
-            if safe_pos then
-                player.teleport(safe_pos, player.physical_surface)
-                player.print("Unstuck! Teleported to a safe position.")
-            else
-                player.print("Could not find a safe position nearby.")
-            end
-        else
-            player.print("No character to unstick.")
         end
     end)
 end

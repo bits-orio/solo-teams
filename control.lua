@@ -3,7 +3,7 @@
 -- License: MIT
 --
 -- Main control script. Creates per-player forces, syncs tech/quality,
--- handles cross-force chat, and fixes platform spawn collisions.
+-- and handles cross-force chat.
 
 local platforms_gui = require("platforms_gui")
 local commands_mod = require("commands")
@@ -79,7 +79,6 @@ end
 script.on_init(function()
     storage.gui_collapsed = {}         -- per-player GUI collapsed state
     storage.gui_location = {}          -- per-player GUI window position
-    storage.pending_collision_fix = {} -- players needing spawn collision fix
     commands_mod.register()
     init_events()
 end)
@@ -88,7 +87,6 @@ end)
 script.on_load(function()
     storage.gui_collapsed = storage.gui_collapsed or {}
     storage.gui_location = storage.gui_location or {}
-    storage.pending_collision_fix = storage.pending_collision_fix or {}
     commands_mod.register()
     init_events()
 end)
@@ -129,45 +127,3 @@ script.on_event(defines.events.on_console_chat, function(event)
     end
 end)
 
--- Spawn collision fix (two-part):
--- Part 1: When a player's physical body arrives on a platform surface, flag
--- them for a position correction on the next tick.
---
--- on_player_changed_surface fires for BOTH physical moves and remote view
--- changes. We distinguish them by comparing player.physical_surface.index
--- (where the body is now) against event.surface_index (where it was before).
--- If they are equal the body didn't move — only the camera did — so we skip.
-script.on_event(defines.events.on_player_changed_surface, function(event)
-    local player = game.get_player(event.player_index)
-    if not (player and player.valid) then return end
-    if not player.physical_surface then return end
-    -- Remote-view change: physical body stays on the same surface it was on.
-    if player.physical_surface.index == event.surface_index then return end
-    if not player.physical_surface.platform then return end
-    local hub = player.physical_surface.platform.hub
-    if hub and hub.valid then
-        storage.pending_collision_fix[event.player_index] = hub
-    end
-end)
-
--- Part 2: On the next tick, find a non-colliding position near the player
--- and re-teleport them there. This prevents players from getting stuck
--- inside the 10x10 platform hub entity.
--- We use the stored hub entity (not player.surface) to find the correct
--- surface, since player.surface changes when the player is remotely viewing
--- another surface.
-script.on_event(defines.events.on_tick, function()
-    for player_index, hub in pairs(storage.pending_collision_fix) do
-        local player = game.get_player(player_index)
-        if player and player.valid and player.character and player.character.valid then
-            if hub and hub.valid then
-                local surface = hub.surface
-                local safe_pos = surface.find_non_colliding_position("character", player.physical_position, 20, 0.5)
-                if safe_pos then
-                    player.teleport(safe_pos, surface)
-                end
-            end
-        end
-        storage.pending_collision_fix[player_index] = nil
-    end
-end)
