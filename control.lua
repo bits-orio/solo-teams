@@ -11,6 +11,9 @@ local landing_pen       = require("landing_pen")
 local commands_mod      = require("commands")
 local platformer_compat = require("platformer_compat")
 
+-- Feature flag: set to true to enable the pre-game Landing Pen waiting area.
+local LANDING_PEN_ENABLED = false
+
 --- Copy all researched technologies, quality unlocks, and space platform
 --- unlock from one force to another. This is generic and works regardless
 --- of which mods are active — it mirrors whatever the source force has.
@@ -97,6 +100,7 @@ script.on_init(function()
     storage.pen_slots             = {}   -- landing pen spawn slot per player
     storage.pen_gui_location      = {}   -- landing pen GUI position per player
     storage.pending_pen_tp        = {}   -- deferred landing pen teleports
+    storage.buddy_requests        = {}   -- pending buddy requests {[requester_index] = target_index}
     commands_mod.register()
     init_events()
 end)
@@ -112,6 +116,7 @@ script.on_load(function()
     storage.pen_slots            = storage.pen_slots            or {}
     storage.pen_gui_location     = storage.pen_gui_location     or {}
     storage.pending_pen_tp       = storage.pending_pen_tp       or {}
+    storage.buddy_requests       = storage.buddy_requests       or {}
     commands_mod.register()
     init_events()
 end)
@@ -133,13 +138,21 @@ script.on_configuration_changed(function()
     init_events()
 end)
 
--- When a new player first joins: create their solo force and place them in
--- the Landing Pen to wait before spawning into the actual game.
--- Platform creation (Platformer compat) is deferred until they click Spawn.
+-- When a new player first joins: create their solo force, then either place
+-- them in the Landing Pen (when enabled) or spawn them directly into the game.
 script.on_event(defines.events.on_player_created, function(event)
     local player = game.get_player(event.player_index)
     create_player_force(player)
-    landing_pen.place_player(player)
+    if LANDING_PEN_ENABLED then
+        landing_pen.place_player(player)
+    else
+        -- Pre-mark as spawned so all pen logic is skipped everywhere
+        storage.spawned_players = storage.spawned_players or {}
+        storage.spawned_players[player.index] = true
+        if platformer_compat.is_active() then
+            platformer_compat.on_player_created(player)
+        end
+    end
     platforms_gui.update_all()
 end)
 
@@ -153,7 +166,7 @@ script.on_event(defines.events.on_gui_click, function(event)
 
     if el.name == "sb_spawn_btn" then
         local player = game.get_player(event.player_index)
-        if player then
+        if player and landing_pen.is_in_pen(player) then
             landing_pen.finish_spawn(player)
             if platformer_compat.is_active() then
                 platformer_compat.on_player_created(player)
@@ -165,6 +178,34 @@ script.on_event(defines.events.on_gui_click, function(event)
                 end
             end
             platforms_gui.update_all()
+        end
+        return
+    end
+
+    if el.name == "sb_buddy_request" then
+        local player = game.get_player(event.player_index)
+        if player and landing_pen.is_in_pen(player) and el.tags and el.tags.sb_target_index then
+            local target = game.get_player(el.tags.sb_target_index)
+            if target and target.connected and not landing_pen.is_in_pen(target) then
+                landing_pen.send_buddy_request(player, target)
+            end
+        end
+        return
+    end
+
+    if el.name == "sb_buddy_accept" then
+        local player = game.get_player(event.player_index)
+        if player and el.tags and el.tags.sb_requester_index then
+            landing_pen.accept_buddy_request(player, el.tags.sb_requester_index)
+            platforms_gui.update_all()
+        end
+        return
+    end
+
+    if el.name == "sb_buddy_reject" then
+        local player = game.get_player(event.player_index)
+        if player and el.tags and el.tags.sb_requester_index then
+            landing_pen.reject_buddy_request(player, el.tags.sb_requester_index)
         end
         return
     end
@@ -189,6 +230,7 @@ end)
 local function rebuild_for_connectivity(leaving_index)
     platforms_gui.update_all()
     landing_pen.update_pen_gui_all()
+    landing_pen.rebuild_buddy_request_guis()
     for _, player in pairs(game.players) do
         if player.connected and player.gui.screen.sb_stats_frame then
             stats_gui.build_stats_gui(player, leaving_index)
@@ -221,9 +263,7 @@ end)
 script.on_event(defines.events.on_player_changed_surface, function(event)
     local player = game.get_player(event.player_index)
     if player and player.connected then
-        if player.surface and player.surface.name ~= "landing-pen" then
-            platforms_gui.build_platforms_gui(player)
-        end
+        platforms_gui.build_platforms_gui(player)
     end
 end)
 

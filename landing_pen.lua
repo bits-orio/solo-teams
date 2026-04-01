@@ -26,7 +26,7 @@ local MAX_SLOTS    = 8    -- number of evenly-spaced spawn positions
 --- The surface is void-like (no autoplace), always daytime, and tiled:
 ---   r ≤ RING_INNER            → refined-concrete
 ---   RING_INNER < r ≤ PEN_RADIUS → refined-hazard-concrete-left (warning ring)
----   r > PEN_RADIUS             → lab-dark-2 (dark void background)
+---   r > PEN_RADIUS             → out-of-map (true void — surface is circle-shaped)
 local function get_or_create_surface()
     if game.surfaces["landing-pen"] then
         return game.surfaces["landing-pen"]
@@ -51,7 +51,7 @@ local function get_or_create_surface()
             elseif r <= PEN_RADIUS then
                 name = "refined-hazard-concrete-left"
             else
-                name = "lab-dark-2"
+                name = "out-of-map"
             end
             tiles[#tiles + 1] = {name = name, position = {x, y}}
         end
@@ -68,6 +68,59 @@ local function get_spawn_position(slot)
         x = math.floor(SPAWN_RADIUS * math.cos(angle) + 0.5),
         y = math.floor(SPAWN_RADIUS * math.sin(angle) + 0.5),
     }
+end
+
+-- ---------------------------------------------------------------------------
+-- Buddy-request helpers
+-- ---------------------------------------------------------------------------
+
+--- Build the buddy-request popup on the target player's screen.
+local function show_buddy_request_gui(target, requester)
+    if target.gui.screen.sb_buddy_req_frame then
+        target.gui.screen.sb_buddy_req_frame.destroy()
+    end
+    local frame = target.gui.screen.add{
+        type      = "frame",
+        name      = "sb_buddy_req_frame",
+        direction = "vertical",
+    }
+    frame.auto_center = true
+
+    local title_bar = frame.add{type = "flow", direction = "horizontal"}
+    title_bar.style.vertical_align = "center"
+    title_bar.drag_target = frame
+    title_bar.add{type = "label", caption = "Buddy Request", style = "frame_title"}
+    local spacer = title_bar.add{type = "empty-widget", style = "draggable_space_header"}
+    spacer.style.horizontally_stretchable = true
+    spacer.style.height = 24
+    spacer.drag_target = frame
+
+    local msg = frame.add{type = "label", caption = requester.name .. " wants to join your team."}
+    msg.style.top_margin    = 6
+    msg.style.bottom_margin = 4
+    msg.style.left_margin   = 4
+
+    frame.add{type = "line"}
+
+    local btn_flow = frame.add{type = "flow", direction = "horizontal"}
+    btn_flow.style.top_margin    = 4
+    btn_flow.style.bottom_margin = 2
+    local accept_btn = btn_flow.add{
+        type    = "button",
+        name    = "sb_buddy_accept",
+        caption = "Accept",
+        style   = "confirm_button",
+        tags    = {sb_requester_index = requester.index},
+    }
+    accept_btn.style.horizontally_stretchable = true
+    local reject_btn = btn_flow.add{
+        type    = "button",
+        name    = "sb_buddy_reject",
+        caption = "Reject",
+        style   = "red_button",
+        tags    = {sb_requester_index = requester.index},
+    }
+    reject_btn.style.horizontally_stretchable = true
 end
 
 -- ---------------------------------------------------------------------------
@@ -236,6 +289,49 @@ function M.build_pen_gui(player)
     btn.style.top_margin              = 4
     btn.style.bottom_margin           = 2
     btn.style.horizontally_stretchable = true
+
+    -- Join-as-buddy section: list active (spawned, connected) players
+    storage.buddy_requests = storage.buddy_requests or {}
+    local my_request = storage.buddy_requests[player.index]
+    local active = {}
+    for _, p in pairs(game.players) do
+        if p.connected and not M.is_in_pen(p) then
+            active[#active + 1] = p
+        end
+    end
+    table.sort(active, function(a, b) return a.name < b.name end)
+
+    if #active > 0 then
+        frame.add{type = "line"}.style.top_margin = 4
+        local hdr = frame.add{type = "label", caption = "Join as buddy:"}
+        hdr.style.font        = "default-bold"
+        hdr.style.left_margin = 4
+        hdr.style.top_margin  = 4
+
+        for _, p in ipairs(active) do
+            local row = frame.add{type = "flow", direction = "horizontal"}
+            row.style.vertical_align           = "center"
+            row.style.left_margin              = 4
+            row.style.horizontally_stretchable = true
+            local lbl = row.add{type = "label", caption = p.name}
+            lbl.style.font_color    = p.chat_color
+            lbl.style.minimal_width = 100
+            if my_request == p.index then
+                local pending = row.add{type = "label", caption = "Pending..."}
+                pending.style.font       = "default-small"
+                pending.style.font_color = {1, 1, 0.4}
+            elseif not my_request then
+                row.add{
+                    type    = "button",
+                    name    = "sb_buddy_request",
+                    caption = "Request",
+                    style   = "button",
+                    tags    = {sb_target_index = p.index},
+                    tooltip = "Ask " .. p.name .. " if you can join their team",
+                }
+            end
+        end
+    end
 end
 
 --- Rebuild the Landing Pen GUI for every connected player currently in the pen.
@@ -243,7 +339,7 @@ function M.update_pen_gui_all()
     local surface = game.surfaces["landing-pen"]
     if not surface then return end
     for _, player in pairs(game.players) do
-        if player.connected and player.surface == surface then
+        if player.connected and player.surface == surface and M.is_in_pen(player) then
             M.build_pen_gui(player)
         end
     end
@@ -265,6 +361,66 @@ function M.finish_spawn(player)
 
     -- Update GUI for players still waiting in the pen
     M.update_pen_gui_all()
+end
+
+--- Re-show buddy-request popups for any targets who reconnected without one.
+function M.rebuild_buddy_request_guis()
+    storage.buddy_requests = storage.buddy_requests or {}
+    for req_idx, tgt_idx in pairs(storage.buddy_requests) do
+        local target    = game.get_player(tgt_idx)
+        local requester = game.get_player(req_idx)
+        if target and target.connected and requester and requester.valid then
+            if not target.gui.screen.sb_buddy_req_frame then
+                show_buddy_request_gui(target, requester)
+            end
+        end
+    end
+end
+
+--- Send a buddy request from requester to target.
+function M.send_buddy_request(requester, target)
+    storage.buddy_requests = storage.buddy_requests or {}
+    storage.buddy_requests[requester.index] = target.index
+    show_buddy_request_gui(target, requester)
+    M.build_pen_gui(requester)
+end
+
+--- Accept a buddy request: move requester onto target's force and spawn them.
+function M.accept_buddy_request(target, requester_index)
+    storage.buddy_requests = storage.buddy_requests or {}
+    storage.buddy_requests[requester_index] = nil
+
+    if target.gui.screen.sb_buddy_req_frame then
+        target.gui.screen.sb_buddy_req_frame.destroy()
+    end
+
+    local requester = game.get_player(requester_index)
+    if not (requester and requester.valid) then return end
+
+    requester.force = target.force
+    M.finish_spawn(requester)
+    requester.teleport(target.position, target.surface)
+
+    target.print(requester.name .. " has joined your team.")
+    if requester.connected then
+        requester.print("You joined " .. target.name .. "'s team.")
+    end
+end
+
+--- Reject a buddy request.
+function M.reject_buddy_request(target, requester_index)
+    storage.buddy_requests = storage.buddy_requests or {}
+    storage.buddy_requests[requester_index] = nil
+
+    if target.gui.screen.sb_buddy_req_frame then
+        target.gui.screen.sb_buddy_req_frame.destroy()
+    end
+
+    local requester = game.get_player(requester_index)
+    if requester and requester.connected then
+        requester.print(target.name .. " declined your buddy request.")
+        M.build_pen_gui(requester)
+    end
 end
 
 return M
