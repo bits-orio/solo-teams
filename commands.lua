@@ -9,14 +9,14 @@ local platforms_gui = require("platforms_gui")
 
 local M = {}
 
---- Register the /platforms command.
+--- Register the /players command.
 --- Output is grouped by player, with player names in their chat color
---- and platform names in grey. Both include GPS ping tags.
+--- and base/platform names in grey. Both include GPS ping tags.
 function M.register()
-    commands.add_command("platforms", "List all players' platforms and locations", function(cmd)
+    commands.add_command("st-players", "List all players, their bases, and platform locations", function(cmd)
         local caller = cmd.player_index and game.get_player(cmd.player_index)
         local owners, order, owner_info = platforms_gui.get_platforms_by_owner()
-        local lines = {"[All Platforms]"}
+        local lines = {"[All Players]"}
         for _, owner in ipairs(order) do
             local c = owner_info[owner].color
             local color_tag = string.format("[color=%.2f,%.2f,%.2f]", c.r or c[1] or 1, c.g or c[2] or 1, c.b or c[3] or 1)
@@ -26,7 +26,7 @@ function M.register()
             end
         end
         if #order == 0 then
-            lines[#lines + 1] = "  No platforms found."
+            lines[#lines + 1] = "  No players found."
         end
         local msg = table.concat(lines, "\n")
         if caller then

@@ -71,6 +71,40 @@ function M.get_platforms_by_owner()
             end
         end
     end
+
+    -- Add vanilla (non-Platformer) surfaces from storage.player_surfaces.
+    -- Each entry is {name = surface_name, planet = "nauvis"} keyed by player index.
+    -- We only create an owner entry here if the player had no space platforms
+    -- (avoiding duplicates when a player has both a vanilla base and platforms).
+    -- owner key is p.name directly — no force-name derivation needed since we
+    -- iterate actual players, and the solo force may not be assigned yet on join.
+    local player_surfaces = storage.player_surfaces or {}
+    for _, p in pairs(game.players) do
+        local ps = player_surfaces[p.index]
+        if ps then
+            local surface = game.surfaces[ps.name]
+            if surface and surface.valid then
+                local owner = p.name
+                if not owners[owner] then
+                    owners[owner] = {}
+                    order[#order + 1] = owner
+                    owner_info[owner] = {
+                        gps        = get_player_gps(p),
+                        color      = p.chat_color,
+                        force_name = p.force.name,
+                        online     = p.connected,
+                    }
+                end
+                local planet_disp = ps.planet:sub(1, 1):upper() .. ps.planet:sub(2)
+                owners[owner][#owners[owner] + 1] = {
+                    name     = p.name .. "'s base on " .. planet_disp,
+                    location = planet_disp,
+                    gps      = string.format("[gps=0,0,%s]", ps.name),
+                }
+            end
+        end
+    end
+
     return owners, order, owner_info
 end
 
@@ -115,7 +149,7 @@ function M.build_platforms_gui(player)
     title_bar.style.horizontal_spacing = 8
     title_bar.drag_target = frame
 
-    title_bar.add{type = "label", caption = "Platforms", style = "frame_title"}
+    title_bar.add{type = "label", caption = "Players", style = "frame_title"}
 
     local spacer = title_bar.add{type = "empty-widget", style = "draggable_space_header"}
     spacer.style.horizontally_stretchable = true
@@ -138,7 +172,7 @@ function M.build_platforms_gui(player)
         name = "sb_platforms_toggle",
         caption = collapsed and "+" or "-",
         style = "close_button",
-        tooltip = collapsed and "Show platforms" or "Hide platforms"
+        tooltip = collapsed and "Show players" or "Hide players"
     }
 
     -- When collapsed, only the title bar is shown
@@ -224,15 +258,23 @@ function M.build_platforms_gui(player)
     end
 
     if #order == 0 then
-        tbl.add{type = "label", caption = "No platforms yet."}
+        tbl.add{type = "label", caption = "No players yet."}
         tbl.add{type = "label", caption = ""}
     end
 
-    -- Footer: return button, shown when the player has their own platform.
+    -- Footer: return button, shown when the player is away from their own base.
+    -- Checks space platform first, then vanilla surface.
     local own_platform
     for _, p in pairs(player.force.platforms) do own_platform = p; break end
-    if own_platform and own_platform.surface and
-       player.surface.index ~= own_platform.surface.index then
+    local return_surface
+    if own_platform and own_platform.surface then
+        return_surface = own_platform.surface
+    else
+        local ps = storage.player_surfaces and storage.player_surfaces[player.index]
+        local vs = ps and game.surfaces[ps.name]
+        if vs and vs.valid then return_surface = vs end
+    end
+    if return_surface and player.surface.index ~= return_surface.index then
         local footer = frame.add{type = "flow", direction = "horizontal"}
         footer.style.top_margin = 4
         footer.style.horizontal_align = "center"
@@ -263,7 +305,7 @@ function M.on_gui_click(event)
     local element = event.element
     if not element or not element.valid then return end
 
-    -- Return-to-base button: teleport player to their own platform surface.
+    -- Return-to-base button: teleport player to their own base surface.
     if element.name == "sb_return_to_base" then
         local player = game.get_player(event.player_index)
         if player then
@@ -271,6 +313,12 @@ function M.on_gui_click(event)
             for _, p in pairs(player.force.platforms) do own_platform = p; break end
             if own_platform and own_platform.surface then
                 player.teleport({ x = 0, y = 0 }, own_platform.surface)
+            else
+                local ps = storage.player_surfaces and storage.player_surfaces[player.index]
+                local vs = ps and game.surfaces[ps.name]
+                if vs and vs.valid then
+                    player.teleport({ x = 0, y = 0 }, vs)
+                end
             end
         end
         return true

@@ -32,18 +32,29 @@ local function get_or_create_surface()
         return game.surfaces["landing-pen"]
     end
 
+    -- Disable all autoplace categories explicitly so no terrain, entities, or
+    -- decoratives are generated when chunks are force-requested below.
     local surface = game.create_surface("landing-pen", {
         default_enable_all_autoplace_controls = false,
+        autoplace_settings = {
+            entity     = {treat_missing_as_default = false, settings = {}},
+            tile       = {treat_missing_as_default = false, settings = {}},
+            decorative = {treat_missing_as_default = false, settings = {}},
+        },
     })
     surface.always_day = true
 
-    local EXTENT = PEN_RADIUS + 4
-    surface.request_to_generate_chunks({x = 0, y = 0}, math.ceil(EXTENT / 32) + 2)
+    -- Generate enough chunks to cover the playable area.
+    local CHUNK_R = 2  -- chunk radius (2 * 32 = 64 tiles each side)
+    surface.request_to_generate_chunks({x = 0, y = 0}, CHUNK_R)
     surface.force_generate_chunk_requests()
 
+    -- Tile the entire generated area. Positions outside the concrete circle
+    -- are set to out-of-map so no generated terrain shows through.
+    local TILE_EXTENT = CHUNK_R * 32
     local tiles = {}
-    for x = -EXTENT, EXTENT do
-        for y = -EXTENT, EXTENT do
+    for x = -TILE_EXTENT, TILE_EXTENT do
+        for y = -TILE_EXTENT, TILE_EXTENT do
             local r = math.sqrt(x * x + y * y)
             local name
             if r <= RING_INNER then
@@ -56,7 +67,10 @@ local function get_or_create_surface()
             tiles[#tiles + 1] = {name = name, position = {x, y}}
         end
     end
-    surface.set_tiles(tiles, true)
+    -- remove_colliding_entities=true, remove_colliding_decoratives=true
+    surface.set_tiles(tiles, true, true, true)
+    -- Belt-and-suspenders: destroy any decoratives that survived
+    surface.destroy_decoratives({area = {{-TILE_EXTENT, -TILE_EXTENT}, {TILE_EXTENT, TILE_EXTENT}}})
 
     return surface
 end
@@ -156,7 +170,8 @@ function M.place_player(player)
         M.build_pen_gui(player)
         M.update_pen_gui_all()
     else
-        -- Queue teleport for the next tick (character may not be ready yet)
+        -- Queue teleport; retried each tick until player.teleport() succeeds
+        -- (it returns false while the player has no character entity yet).
         storage.pending_pen_tp = storage.pending_pen_tp or {}
         storage.pending_pen_tp[player.index] = {
             surface  = surface,
@@ -173,7 +188,28 @@ function M.process_pending_teleports()
     for player_index, tp in pairs(storage.pending_pen_tp) do
         local player = game.get_player(player_index)
         if player and player.valid and tp.surface and tp.surface.valid then
-            player.teleport(tp.position, tp.surface)
+            -- Exit any landing cutscene immediately so the player doesn't watch
+            -- the Nauvis drop-pod sequence before being moved to the pen.
+            if player.controller_type == defines.controllers.cutscene then
+                player.exit_cutscene()
+            end
+            local ok = player.teleport(tp.position, tp.surface)
+            if ok then
+                -- Re-assert the player's solo force. The Factorio scenario's
+                -- cutscene-end handler runs after on_player_created and resets
+                -- the player back to the default "player" force, overwriting
+                -- our create_player_force assignment. Correcting it here, right
+                -- after the successful teleport, ensures it sticks.
+                local solo_force = game.forces["player-" .. player.name]
+                if solo_force and player.force ~= solo_force then
+                    player.force = solo_force
+                end
+                done[#done + 1] = player_index
+            end
+            -- If teleport returned false (character not ready yet), leave the
+            -- entry in the queue and retry on the next tick.
+        else
+            -- Player or surface gone — drop the entry
             done[#done + 1] = player_index
         end
     end
@@ -399,7 +435,12 @@ function M.accept_buddy_request(target, requester_index)
 
     requester.force = target.force
     M.finish_spawn(requester)
-    requester.teleport(target.position, target.surface)
+    -- Find the nearest non-colliding position around the target so the two
+    -- players don't land on top of each other.
+    local spawn_pos = target.surface.find_non_colliding_position(
+        "character", target.position, 10, 1
+    ) or target.position
+    requester.teleport(spawn_pos, target.surface)
 
     target.print(requester.name .. " has joined your team.")
     if requester.connected then

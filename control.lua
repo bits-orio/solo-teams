@@ -10,9 +10,8 @@ local stats_gui         = require("stats_gui")
 local landing_pen       = require("landing_pen")
 local commands_mod      = require("commands")
 local platformer_compat = require("platformer_compat")
-
--- Feature flag: set to true to enable the pre-game Landing Pen waiting area.
-local LANDING_PEN_ENABLED = false
+local vanilla_compat    = require("vanilla_compat")
+local admin_gui         = require("admin_gui")
 
 --- Copy all researched technologies, quality unlocks, and space platform
 --- unlock from one force to another. This is generic and works regardless
@@ -76,14 +75,17 @@ end
 --- Register periodic tick handlers:
 ---   every  30 ticks (~0.5s): sync quality unlocks across all forces
 ---   every 300 ticks (~5s):   refresh the platforms GUI for all players
----   every tick:              flush deferred teleports (landing pen + Platformer)
+---   every tick:              flush deferred teleports (landing pen + Platformer + vanilla)
 local function init_events()
     script.on_nth_tick(30, sync_quality_all_forces)
+    script.on_nth_tick(60, admin_gui.update_all)
     script.on_nth_tick(300, platforms_gui.update_all)
     script.on_event(defines.events.on_tick, function()
         landing_pen.process_pending_teleports()
         if platformer_compat.is_active() then
             platformer_compat.process_pending_teleports()
+        else
+            vanilla_compat.process_pending_teleports()
         end
     end)
 end
@@ -101,6 +103,12 @@ script.on_init(function()
     storage.pen_gui_location      = {}   -- landing pen GUI position per player
     storage.pending_pen_tp        = {}   -- deferred landing pen teleports
     storage.buddy_requests        = {}   -- pending buddy requests {[requester_index] = target_index}
+    storage.player_surfaces       = {}   -- vanilla surfaces {[player_index] = {name, planet}}
+    storage.pending_vanilla_tp    = {}   -- deferred vanilla surface teleports
+    storage.admin_flags           = {}   -- runtime feature flags set via admin panel
+    storage.admin_gui_collapsed   = {}   -- per-admin panel collapsed state
+    storage.admin_gui_location    = {}   -- per-admin panel position
+    admin_gui.get_flags()               -- initialise flag defaults
     commands_mod.register()
     init_events()
 end)
@@ -117,6 +125,11 @@ script.on_load(function()
     storage.pen_gui_location     = storage.pen_gui_location     or {}
     storage.pending_pen_tp       = storage.pending_pen_tp       or {}
     storage.buddy_requests       = storage.buddy_requests       or {}
+    storage.player_surfaces      = storage.player_surfaces      or {}
+    storage.pending_vanilla_tp   = storage.pending_vanilla_tp   or {}
+    storage.admin_flags          = storage.admin_flags          or {}
+    storage.admin_gui_collapsed  = storage.admin_gui_collapsed  or {}
+    storage.admin_gui_location   = storage.admin_gui_location   or {}
     commands_mod.register()
     init_events()
 end)
@@ -143,7 +156,7 @@ end)
 script.on_event(defines.events.on_player_created, function(event)
     local player = game.get_player(event.player_index)
     create_player_force(player)
-    if LANDING_PEN_ENABLED then
+    if admin_gui.flag("landing_pen_enabled") then
         landing_pen.place_player(player)
     else
         -- Pre-mark as spawned so all pen logic is skipped everywhere
@@ -151,6 +164,8 @@ script.on_event(defines.events.on_player_created, function(event)
         storage.spawned_players[player.index] = true
         if platformer_compat.is_active() then
             platformer_compat.on_player_created(player)
+        else
+            vanilla_compat.setup_player_surface(player)
         end
     end
     platforms_gui.update_all()
@@ -171,11 +186,7 @@ script.on_event(defines.events.on_gui_click, function(event)
             if platformer_compat.is_active() then
                 platformer_compat.on_player_created(player)
             else
-                -- Without Platformer, teleport to Nauvis spawn point
-                local nauvis = game.surfaces["nauvis"]
-                if nauvis then
-                    player.teleport({x = 0, y = 0}, nauvis)
-                end
+                vanilla_compat.setup_player_surface(player)
             end
             platforms_gui.update_all()
         end
@@ -215,6 +226,7 @@ script.on_event(defines.events.on_gui_click, function(event)
         if player then stats_gui.toggle(player) end
         return
     end
+    if admin_gui.on_gui_click(event) then return end
     if stats_gui.on_gui_click(event) then return end
     platforms_gui.on_gui_click(event)
 end)
@@ -231,6 +243,7 @@ local function rebuild_for_connectivity(leaving_index)
     platforms_gui.update_all()
     landing_pen.update_pen_gui_all()
     landing_pen.rebuild_buddy_request_guis()
+    admin_gui.update_all()
     for _, player in pairs(game.players) do
         if player.connected and player.gui.screen.sb_stats_frame then
             stats_gui.build_stats_gui(player, leaving_index)
@@ -246,23 +259,45 @@ script.on_event(defines.events.on_player_joined_game, function(event)
     if player and landing_pen.is_in_pen(player) then
         landing_pen.place_player(player)
     end
+    -- Admin GUI is rebuilt by the 60-tick cycle; calling it here would race
+    -- against Factorio setting player.admin after on_player_joined_game fires.
     rebuild_for_connectivity(nil)
 end)
 script.on_event(defines.events.on_player_left_game, function(event)
     rebuild_for_connectivity(event.player_index)
 end)
 
--- Delegate friend checkbox toggle events
+-- Delegate checkbox events: admin flags first, then friend toggles.
+-- When an admin flag changes, apply immediate side effects here.
 script.on_event(defines.events.on_gui_checked_state_changed, function(event)
+    local changed_flag = admin_gui.on_gui_checked_state_changed(event)
+    if changed_flag then
+        -- When landing pen is disabled mid-session, immediately spawn every
+        -- player still waiting in the pen so they aren't left stranded.
+        if changed_flag == "landing_pen_enabled" and not admin_gui.flag("landing_pen_enabled") then
+            for _, player in pairs(game.players) do
+                if landing_pen.is_in_pen(player) then
+                    landing_pen.finish_spawn(player)
+                    if platformer_compat.is_active() then
+                        platformer_compat.on_player_created(player)
+                    else
+                        vanilla_compat.setup_player_surface(player)
+                    end
+                end
+            end
+            platforms_gui.update_all()
+        end
+        return
+    end
     platforms_gui.on_friend_toggle(event)
 end)
 
--- Rebuild the platforms GUI immediately when a player changes surface so the
--- "Return to my base" button appears/disappears without delay.
--- Skip players still in the landing pen (they have no platforms frame).
+-- Log and rebuild the platforms GUI immediately when a player changes surface.
 script.on_event(defines.events.on_player_changed_surface, function(event)
     local player = game.get_player(event.player_index)
     if player and player.connected then
+        log("[solo-teams] surface_change: " .. player.name
+            .. " → " .. (player.surface and player.surface.name or "nil"))
         platforms_gui.build_platforms_gui(player)
     end
 end)
