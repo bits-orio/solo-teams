@@ -8,33 +8,48 @@
 -- at roughly the same time.
 
 local M = {}
+local admin_gui = require("admin_gui")
 
 -- ---------------------------------------------------------------------------
 -- Layout constants
 -- ---------------------------------------------------------------------------
 
-local PEN_RADIUS   = 15   -- outer circle edge (hazard ring boundary)
-local RING_INNER   = 12   -- hazard concrete begins at this radius
+local PEN_RADIUS   = 15   -- lab-dark-2 island radius (matches OARC holding pen)
+local MOAT_OUTER   = PEN_RADIUS + 3   -- water moat outer edge
+local GRASS_OUTER  = MOAT_OUTER  + 3   -- grass ring outer edge; void beyond
 local SPAWN_RADIUS = 5    -- radius of the ring where players are placed
 local MAX_SLOTS    = 8    -- number of evenly-spaced spawn positions
+local SURFACE_NAME = "landing-pen"
 
 -- ---------------------------------------------------------------------------
 -- Surface creation
 -- ---------------------------------------------------------------------------
 
---- Create the landing-pen surface with a circular concrete floor.
---- The surface is void-like (no autoplace), always daytime, and tiled:
----   r ≤ RING_INNER            → refined-concrete
----   RING_INNER < r ≤ PEN_RADIUS → refined-hazard-concrete-left (warning ring)
----   r > PEN_RADIUS             → out-of-map (true void — surface is circle-shaped)
+--- Compute the tile name for a position based on distance from the origin.
+--- Ring layout (matches OARC holding-pen dimensions):
+---   r < PEN_RADIUS  (15)  → lab-dark-2   (central lobby)
+---   r < MOAT_OUTER  (18)  → water        (moat)
+---   r < GRASS_OUTER (21)  → grass-1      (outer ring)
+---   otherwise             → out-of-map   (void)
+local function tile_for_distance(r)
+    if r < PEN_RADIUS then
+        return "lab-dark-2"
+    elseif r < MOAT_OUTER then
+        return "water"
+    elseif r < GRASS_OUTER then
+        return "grass-1"
+    else
+        return "out-of-map"
+    end
+end
+
+--- Create the landing-pen surface with a circular island.
 local function get_or_create_surface()
-    if game.surfaces["landing-pen"] then
-        return game.surfaces["landing-pen"]
+    if game.surfaces[SURFACE_NAME] then
+        return game.surfaces[SURFACE_NAME]
     end
 
-    -- Disable all autoplace categories explicitly so no terrain, entities, or
-    -- decoratives are generated when chunks are force-requested below.
-    local surface = game.create_surface("landing-pen", {
+    local surface = game.create_surface(SURFACE_NAME, {
         default_enable_all_autoplace_controls = false,
         autoplace_settings = {
             entity     = {treat_missing_as_default = false, settings = {}},
@@ -42,37 +57,68 @@ local function get_or_create_surface()
             decorative = {treat_missing_as_default = false, settings = {}},
         },
     })
-    surface.always_day = true
+    surface.always_day  = true
+    surface.show_clouds = false
 
-    -- Generate enough chunks to cover the playable area.
-    local CHUNK_R = 2  -- chunk radius (2 * 32 = 64 tiles each side)
-    surface.request_to_generate_chunks({x = 0, y = 0}, CHUNK_R)
+    -- Force-generate centre chunks so we can teleport immediately.
+    surface.request_to_generate_chunks({x = 0, y = 0}, 2)
     surface.force_generate_chunk_requests()
 
-    -- Tile the entire generated area. Positions outside the concrete circle
-    -- are set to out-of-map so no generated terrain shows through.
-    local TILE_EXTENT = CHUNK_R * 32
-    local tiles = {}
-    for x = -TILE_EXTENT, TILE_EXTENT do
-        for y = -TILE_EXTENT, TILE_EXTENT do
-            local r = math.sqrt(x * x + y * y)
-            local name
-            if r <= RING_INNER then
-                name = "refined-concrete"
-            elseif r <= PEN_RADIUS then
-                name = "refined-hazard-concrete-left"
-            else
-                name = "out-of-map"
-            end
-            tiles[#tiles + 1] = {name = name, position = {x, y}}
-        end
-    end
-    -- remove_colliding_entities=true, remove_colliding_decoratives=true
-    surface.set_tiles(tiles, true, true, true)
-    -- Belt-and-suspenders: destroy any decoratives that survived
-    surface.destroy_decoratives({area = {{-TILE_EXTENT, -TILE_EXTENT}, {TILE_EXTENT, TILE_EXTENT}}})
+    -- Ground text decorations
+    rendering.draw_text{
+        text      = "SOLO TEAMS",
+        surface   = surface,
+        target    = {x = 0, y = -8},
+        color     = {r = 0.9, g = 0.7, b = 0.3, a = 0.8},
+        scale     = 5,
+        font      = "default-large-bold",
+        alignment = "center",
+    }
+    rendering.draw_text{
+        text      = "Solo by design. Legendary by choice.",
+        surface   = surface,
+        target    = {x = 0, y = -4},
+        color     = {r = 0.7, g = 0.7, b = 0.7, a = 0.8},
+        scale     = 3,
+        font      = "default-large",
+        alignment = "center",
+    }
+    rendering.draw_text{
+        text      = "Spawn when ready",
+        surface   = surface,
+        target    = {x = 0, y = 4},
+        color     = {r = 1.0, g = 1.0, b = 1.0, a = 0.5},
+        scale     = 1.5,
+        font      = "default",
+        alignment = "center",
+    }
 
     return surface
+end
+
+--- on_chunk_generated handler — tiles every chunk on the pen surface.
+--- This catches both the initial force-generated chunks AND any chunks
+--- Factorio generates later (e.g. if a player scrolls the map), ensuring
+--- nothing but void appears outside the island.
+function M.on_chunk_generated(event)
+    if event.surface.name ~= SURFACE_NAME then return end
+
+    local area = event.area
+    local tiles = {}
+    for x = area.left_top.x, area.right_bottom.x - 1 do
+        for y = area.left_top.y, area.right_bottom.y - 1 do
+            local r = math.sqrt(x * x + y * y)
+            tiles[#tiles + 1] = {name = tile_for_distance(r), position = {x, y}}
+        end
+    end
+    event.surface.set_tiles(tiles)
+
+    -- Remove any auto-placed entities (resources, trees, etc.)
+    for _, entity in ipairs(event.surface.find_entities(area)) do
+        if entity.type ~= "character" then
+            entity.destroy()
+        end
+    end
 end
 
 --- Map a 0-based slot index to a world position on the spawn ring.
@@ -267,7 +313,7 @@ function M.build_pen_gui(player)
     sub.style.left_margin   = 4
 
     -- In-pen player list
-    local pen_surface = game.surfaces["landing-pen"]
+    local pen_surface = game.surfaces[SURFACE_NAME]
     if pen_surface then
         local in_pen = {}
         for _, p in pairs(game.players) do
@@ -326,7 +372,8 @@ function M.build_pen_gui(player)
     btn.style.bottom_margin           = 2
     btn.style.horizontally_stretchable = true
 
-    -- Join-as-buddy section: list active (spawned, connected) players
+    -- Join-as-buddy section (only when admin flag is enabled)
+    if not admin_gui.flag("buddy_join_enabled") then return end
     storage.buddy_requests = storage.buddy_requests or {}
     local my_request = storage.buddy_requests[player.index]
     local active = {}
@@ -372,7 +419,7 @@ end
 
 --- Rebuild the Landing Pen GUI for every connected player currently in the pen.
 function M.update_pen_gui_all()
-    local surface = game.surfaces["landing-pen"]
+    local surface = game.surfaces[SURFACE_NAME]
     if not surface then return end
     for _, player in pairs(game.players) do
         if player.connected and player.surface == surface and M.is_in_pen(player) then

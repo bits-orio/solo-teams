@@ -61,7 +61,7 @@ local function draw_about(parent)
 
     -- Tagline
     local tagline = scroll.add{type = "label",
-        caption = "Compete solo. Share the world."}
+        caption = "Solo by design. Legendary by choice."}
     tagline.style.font       = "default-large-semibold"
     tagline.style.font_color = {r = 0.6, g = 0.8, b = 1}
     tagline.style.top_margin = 4
@@ -158,6 +158,7 @@ end
 -- ---------------------------------------------------------------------------
 
 local function draw_frame(player)
+    if player.gui.screen[FRAME_NAME] then return end
     local frame = player.gui.screen.add{
         type      = "frame",
         name      = FRAME_NAME,

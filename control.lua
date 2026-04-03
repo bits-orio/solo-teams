@@ -86,12 +86,11 @@ local function sync_quality_all_forces()
 end
 
 --- Register event-driven tick handlers:
----   every  30 ticks (~0.5s): sync quality unlocks across all forces
----   every tick:              flush deferred teleports (landing pen + Platformer + vanilla)
---- Admin, platforms, and research GUIs are rebuilt by their respective events
---- (player join/leave, surface change, research finished, flag toggle, etc.).
+---   every tick: flush deferred teleports (landing pen + Platformer + vanilla)
+--- Quality sync is handled in on_research_finished; admin, platforms, and
+--- research GUIs are rebuilt by their respective events.
 local function init_events()
-    script.on_nth_tick(30, sync_quality_all_forces)
+    script.on_event(defines.events.on_chunk_generated, landing_pen.on_chunk_generated)
     script.on_event(defines.events.on_tick, function()
         landing_pen.process_pending_teleports()
         if platformer_compat.is_active() then
@@ -233,14 +232,15 @@ script.on_event(defines.events.on_player_created, function(event)
     platforms_gui.update_all()
 end)
 
--- Record game-tick when a technology finishes researching.
--- Skips script-triggered research (copy_force_state in create_player_force).
+-- Record game-tick when a technology finishes researching, and sync quality
+-- unlocks across all per-player forces (replaces the old on_nth_tick poll).
 script.on_event(defines.events.on_research_finished, function(event)
     local tech  = event.research
     local force = tech.force
     storage.tech_research_ticks             = storage.tech_research_ticks or {}
     storage.tech_research_ticks[force.name] = storage.tech_research_ticks[force.name] or {}
     storage.tech_research_ticks[force.name][tech.name] = game.tick
+    sync_quality_all_forces()
     research_gui.update_all()
 end)
 
@@ -342,8 +342,10 @@ script.on_event(defines.events.on_player_joined_game, function(event)
         landing_pen.place_player(player)
     end
     -- Recreate nav buttons (mod_gui button flow is wiped on disconnect)
+    -- Use register_nav_buttons instead of nav.rebuild_buttons so that
+    -- btn_specs and click handlers are re-populated after a server restart.
     if player then
-        nav.rebuild_buttons(player)
+        register_nav_buttons(player)
     end
     -- Defer admin panel creation: player.admin may not be set yet at this point.
     -- Schedule a one-time check 30 ticks (~0.5s) later.
@@ -378,6 +380,9 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(event)
     if changed_flag then
         -- When landing pen is disabled mid-session, immediately spawn every
         -- player still waiting in the pen so they aren't left stranded.
+        if changed_flag == "buddy_join_enabled" then
+            landing_pen.update_pen_gui_all()
+        end
         if changed_flag == "landing_pen_enabled" and not admin_gui.flag("landing_pen_enabled") then
             for _, player in pairs(game.players) do
                 if landing_pen.is_in_pen(player) then

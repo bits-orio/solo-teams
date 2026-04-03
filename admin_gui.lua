@@ -21,11 +21,17 @@ local FLAGS = {
         label   = "Landing Pen",
         tooltip = "When enabled, new players wait in the Landing Pen before spawning into the game.",
     },
+    {
+        key     = "buddy_join_enabled",
+        label   = "Buddy Join",
+        tooltip = "When enabled, players in the Landing Pen can request to join another player's force.",
+    },
 }
 
 -- Defaults used on first init.
 local FLAG_DEFAULTS = {
     landing_pen_enabled = true,
+    buddy_join_enabled  = false,
 }
 
 -- ---------------------------------------------------------------------------
