@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.9
+Date: 2026-04-03
+  Features:
+    - Landing Pen visual overhaul: lab-dark-2 island, water moat, grass ring, ground text
+    - Add "Buddy Join" admin feature flag (off by default) to gate buddy request system
+    - New branding: "Solo by design. Legendary by choice."
+  Changes:
+    - Replace quality sync polling (every 30 ticks) with event-driven sync on research finished
+    - Landing Pen chunks now handled via on_chunk_generated (no more grass outside the void)
+  Bugfixes:
+    - Fix nav bar buttons not working after server restart / save transfer
+    - Fix welcome screen crash when on_player_created and on_player_joined_game both fire
+
+---------------------------------------------------------------------------------------------------
 Version: 0.2.8
 Date: 2026-04-02
   Features:
