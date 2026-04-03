@@ -6,6 +6,8 @@
 -- platforms. Includes clickable GPS ping buttons and per-player friend
 -- toggle checkboxes.
 
+local nav = require("nav")
+
 local M = {}
 
 --- Build a Factorio rich-text GPS tag for a platform's hub location.
@@ -121,27 +123,25 @@ function M.build_platforms_gui(player)
     local screen = player.gui.screen
     storage.gui_location = storage.gui_location or {}
 
-    -- Save current position before destroying, so drags are preserved
-    if screen.sb_platforms_frame then
-        storage.gui_location[player.index] = screen.sb_platforms_frame.location
-        screen.sb_platforms_frame.destroy()
+    -- Reuse existing frame (preserves drag state); create only if absent
+    local frame = screen.sb_platforms_frame
+    if frame then
+        storage.gui_location[player.index] = frame.location
+        frame.clear()
+    else
+        frame = screen.add{
+            type = "frame",
+            name = "sb_platforms_frame",
+            direction = "vertical"
+        }
+        if storage.gui_location[player.index] then
+            frame.location = storage.gui_location[player.index]
+        else
+            frame.location = {x = 5, y = 400}
+        end
     end
 
     local collapsed = is_gui_collapsed(player)
-
-    -- Main frame
-    local frame = screen.add{
-        type = "frame",
-        name = "sb_platforms_frame",
-        direction = "vertical"
-    }
-
-    -- Restore saved position or use default (5px from left edge)
-    if storage.gui_location[player.index] then
-        frame.location = storage.gui_location[player.index]
-    else
-        frame.location = {x = 5, y = 200}
-    end
 
     -- Title bar: draggable, with "Platforms" label, spacer, and +/- toggle
     local title_bar = frame.add{type = "flow", name = "sb_title_bar", direction = "horizontal"}
@@ -155,17 +155,6 @@ function M.build_platforms_gui(player)
     spacer.style.horizontally_stretchable = true
     spacer.style.height = 24
     spacer.drag_target = frame
-
-    local stats_btn = title_bar.add{
-        type    = "button",
-        name    = "sb_stats_open",
-        caption = "Stats",
-        style   = "button",
-        tooltip = "Production stats",
-    }
-    stats_btn.style.left_padding  = 1
-    stats_btn.style.right_padding = 1
-    stats_btn.style.minimal_width = 0
 
     title_bar.add{
         type = "sprite-button",
@@ -293,7 +282,7 @@ end
 --- landing pen (so they can inspect active players before deciding to spawn).
 function M.update_all()
     for _, player in pairs(game.players) do
-        if player.connected then
+        if player.connected and player.gui.screen.sb_platforms_frame then
             M.build_platforms_gui(player)
         end
     end
@@ -373,6 +362,30 @@ function M.on_friend_toggle(event)
     player.force.set_friend(target_force, new_state)
 
     M.build_platforms_gui(player)
+end
+
+--- Toggle the platforms panel open/closed for a player.
+function M.toggle(player)
+    if player.gui.screen.sb_platforms_frame then
+        storage.gui_location = storage.gui_location or {}
+        storage.gui_location[player.index] = player.gui.screen.sb_platforms_frame.location
+        player.gui.screen.sb_platforms_frame.destroy()
+    else
+        M.build_platforms_gui(player)
+    end
+end
+
+--- Register the nav bar button for this player.
+--- Idempotent — safe to call on reconnect.
+function M.on_player_created(player)
+    nav.add_top_button(player, {
+        name    = "sb_platforms_btn",
+        sprite  = "utility/gps_map_icon",
+        tooltip = "Players & Platforms",
+    })
+    nav.on_click("sb_platforms_btn", function(e)
+        M.toggle(e.player)
+    end)
 end
 
 return M

@@ -1,37 +1,55 @@
-# Solo Teams
+# 🏭 Solo Teams
 
 ![Solo Teams](thumbnail.png)
 
-A Factorio 2.0 mod that gives each player their own force (team) with independent research, production statistics, and diplomacy. Players compete solo while sharing the same game world.
+> **Compete solo. Share the world.**
 
-## Origin
+A Factorio 2.0 mod that gives each player their own independent force  - research your own tech tree, build your own factory, and progress at your own pace, all on the same shared map.
 
-This mod was primarily built for the [Space Block](https://mods.factorio.com/mod/yunrus-space-block) scenario, where each player gets their own space platform and races independently. It may work with other scenarios and mods as well, though that hasn't been extensively tested.
+## 💬 Community
 
-## Features
+Join the Discord: **https://discord.gg/tWz4FT74pH**
 
-- **Separate forces** — Each player who joins automatically gets their own force (`player-<name>`). All researched technologies, quality unlocks, and space platform access are copied from the default force.
-- **Neutral diplomacy** — Players start in a cease-fire relationship (can't hurt each other, can't interact with each other's buildings). Friendship can be opted into per-player.
-- **Platforms GUI** — A draggable, collapsible overlay showing all players and their platforms with live GPS locations. Clicking the GPS icon pings the location in chat.
-- **Friend toggle** — A checkbox next to each player's name in the GUI lets you control friendship independently. Friending another player lets them access your entities.
-- **Cross-force chat** — Normal chat messages are broadcast to all forces, so players don't need `/shout` to communicate.
-- **/platforms command** — Lists all players and their platforms with colored names and clickable GPS pings.
-- **/unstuck command** — Ejects the player from a vehicle (e.g. platform hub) and teleports to a safe position. Useful when accidentally entering the hub entity.
-- **Spawn collision fix** — Automatically detects when a player is teleported onto a platform hub and repositions them to a non-colliding spot.
+## 🚀 Origin
 
-## Installation
+Originally built for the [Space Block](https://mods.factorio.com/mod/yunrus-space-block) scenario, where each player gets their own space platform and races independently. Works with vanilla surfaces and other scenarios too.
 
-1. Download or clone this repository into your Factorio mods folder as `solo-teams_0.1.0/`
-2. Enable the mod in the Factorio mod manager
-3. Start or load a game — solo forces are created automatically for each new player
+## ✨ Features
 
-## Compatibility
+### Core
+- 🧑‍🚀 **Separate forces**  - Each player gets their own force (`player-<name>`) with independent research, quality unlocks, and space platform access copied from the default force.
+- 🤝 **Neutral diplomacy**  - Players start in cease-fire (no friendly fire, no shared buildings). Opt into friendship per-player via the GUI.
+- 💬 **Cross-force chat**  - Normal chat reaches all forces. No need for `/shout`.
+
+### GUI Panels *(top-left nav bar)*
+- 🗺️ **Players & Platforms**  - Live overview of all players, their surfaces, and GPS locations. Click to ping in chat.
+- 📊 **Production Stats**  - Per-player item production comparison.
+- 🔬 **Research**  - Tech icon grid ordered by research time. Click any player row for a 1-on-1 diff showing who has what and when they researched it.
+- ⚙️ **Admin Panel**  - Runtime feature flags (Landing Pen toggle, etc.). Visible to the host only.
+- ℹ️ **Welcome / Discord**  - Mod intro + Discord invite with scannable QR code.
+
+### Landing Pen
+- 🛬 New players wait in a pre-game lobby until they're ready to spawn.
+- 👥 **Buddy system**  - Pair up with a friend to spawn on the same planet.
+- 🔧 Admins can disable the pen to spawn players directly.
+
+### Commands
+- `/platforms`  - Lists all players and platforms with GPS pings.
+- `/unstuck`  - Ejects from a vehicle and teleports to a safe position.
+
+## 🔧 Installation
+
+1. Download or clone into your Factorio mods folder as `solo-teams_0.2.7/`
+2. Enable in the Factorio mod manager
+3. Start or load a game  - solo forces are created automatically for each new player
+
+## ⚙️ Compatibility
 
 - Requires Factorio 2.0 (`base >= 2.0`)
-- No dependencies on any other mod
-- Designed to load before most mods alphabetically, so force creation happens before other mods process new players
-- Factorio has a hard limit of 64 forces, supporting up to ~61 players (after subtracting built-in forces)
+- Works with [Space Block](https://mods.factorio.com/mod/yunrus-space-block) and vanilla surfaces
+- Optional integration with [Space Exploration Platformer](https://mods.factorio.com/mod/space-exploration-platformer)
+- Factorio supports up to 64 forces (~61 players after built-in forces)
 
-## License
+## 📄 License
 
 [MIT](LICENSE)

@@ -247,7 +247,7 @@ function M.build_pen_gui(player)
     if storage.pen_gui_location[player.index] then
         frame.location = storage.pen_gui_location[player.index]
     else
-        frame.auto_center = true
+        frame.location = {x = 5, y = 80}
     end
 
     -- Title bar (draggable)
@@ -441,6 +441,11 @@ function M.accept_buddy_request(target, requester_index)
         "character", target.position, 10, 1
     ) or target.position
     requester.teleport(spawn_pos, target.surface)
+    -- Clock starts when the buddy lands on the real game surface
+    storage.player_clock_start = storage.player_clock_start or {}
+    if not storage.player_clock_start[requester.index] then
+        storage.player_clock_start[requester.index] = game.tick
+    end
 
     target.print(requester.name .. " has joined your team.")
     if requester.connected then

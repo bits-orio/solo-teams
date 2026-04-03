@@ -2,12 +2,17 @@
 -- Author: bits-orio
 -- License: MIT
 --
+-- Nav bar integration: each player gets a production-science-pack sprite-button
+-- in the top-left mod_gui strip that toggles this window.
+--
 -- Per-player production statistics window.
 -- Categories are built from prototypes (overhaul-safe). Intermediates and
 -- the Custom category use curated/hardcoded lists overridable via
 -- M.set_intermediates() / M.set_custom() for mod-compat code.
 -- Every column header is a choose-elem-button; always MAX_COLS slots are
 -- shown so players can fill blank ones to add items.
+
+local nav = require("nav")
 
 local M = {}
 
@@ -519,6 +524,19 @@ function M.on_gui_elem_changed(event)
 
     M.build_stats_gui(player)
     return true
+end
+
+--- Register the nav bar button for this player.
+--- Idempotent — safe to call on reconnect.
+function M.on_player_created(player)
+    nav.add_top_button(player, {
+        name    = "sb_stats_btn",
+        sprite  = "item/production-science-pack",
+        tooltip = "Production Stats",
+    })
+    nav.on_click("sb_stats_btn", function(e)
+        M.toggle(e.player)
+    end)
 end
 
 return M

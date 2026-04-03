@@ -53,14 +53,8 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Returns true when this player should see the admin panel.
---- Factorio grants player.admin=true to everyone in a local (non-dedicated)
---- game, so we restrict to player index 1 (the server host) as the
---- authoritative admin. player.admin is still checked as a secondary guard.
 local function is_admin(player)
-    log("[solo-teams] admin check: " .. player.name
-        .. " index=" .. player.index
-        .. " player.admin=" .. tostring(player.admin))
-    return player.index == 1 and player.admin
+    return player.admin
 end
 
 local function is_collapsed(player)
@@ -76,25 +70,25 @@ function M.build_admin_gui(player)
     local screen = player.gui.screen
     storage.admin_gui_location = storage.admin_gui_location or {}
 
-    if screen.sb_admin_frame then
-        storage.admin_gui_location[player.index] = screen.sb_admin_frame.location
-        screen.sb_admin_frame.destroy()
+    -- Reuse existing frame (preserves drag state); create only if absent
+    local frame = screen.sb_admin_frame
+    if frame then
+        storage.admin_gui_location[player.index] = frame.location
+        frame.clear()
+    else
+        frame = screen.add{
+            type      = "frame",
+            name      = "sb_admin_frame",
+            direction = "vertical",
+        }
+        if storage.admin_gui_location[player.index] then
+            frame.location = storage.admin_gui_location[player.index]
+        else
+            frame.location = {x = 270, y = 200}
+        end
     end
 
     local collapsed = is_collapsed(player)
-
-    local frame = screen.add{
-        type      = "frame",
-        name      = "sb_admin_frame",
-        direction = "vertical",
-    }
-
-    if storage.admin_gui_location[player.index] then
-        frame.location = storage.admin_gui_location[player.index]
-    else
-        -- Default: right of the Players GUI (x=5,w≈256) with matching top margin
-        frame.location = {x = 270, y = 200}
-    end
 
     -- Title bar
     local title_bar = frame.add{type = "flow", direction = "horizontal"}
@@ -148,12 +142,16 @@ function M.build_admin_gui(player)
     end
 end
 
---- Rebuild the admin panel for all connected admins; destroy it for non-admins.
+--- Ensure the admin panel exists for all connected admins; destroy it for non-admins.
+--- Only creates the panel if it doesn't exist yet — periodic rebuilds are unnecessary
+--- because flag changes already trigger their own rebuild via checkbox handlers.
 function M.update_all()
     for _, player in pairs(game.players) do
         if player.connected then
             if is_admin(player) then
-                M.build_admin_gui(player)
+                if not player.gui.screen.sb_admin_frame then
+                    M.build_admin_gui(player)
+                end
             elseif player.gui.screen.sb_admin_frame then
                 player.gui.screen.sb_admin_frame.destroy()
             end
@@ -197,6 +195,27 @@ function M.on_gui_checked_state_changed(event)
 
     -- Return the key so control.lua can apply immediate side effects.
     return key
+end
+
+--- Toggle the admin panel open/closed for a player.
+function M.toggle(player)
+    if not is_admin(player) then return end
+    local frame = player.gui.screen.sb_admin_frame
+    if frame then
+        storage.admin_gui_location = storage.admin_gui_location or {}
+        storage.admin_gui_location[player.index] = frame.location
+        frame.destroy()
+    else
+        M.build_admin_gui(player)
+    end
+end
+
+--- No nav bar button — the admin panel is shown automatically by the
+--- 60-tick update_all cycle for the host player (index 1).  Adding a
+--- button during on_player_created caused multiplayer desyncs because
+--- player.admin is not synchronised at that point.
+function M.on_player_created(_player)
+    -- intentionally empty
 end
 
 return M

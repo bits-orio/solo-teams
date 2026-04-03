@@ -1,0 +1,43 @@
+name: Package Factorio Mod
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read mod info
+        id: info
+        run: |
+          NAME=$(jq -r .name info.json)
+          VERSION=$(jq -r .version info.json)
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "folder=${NAME}_${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build zip
+        run: |
+          FOLDER="${{ steps.info.outputs.folder }}"
+          mkdir -p "build/${FOLDER}"
+          rsync -a --exclude='.git' \
+                   --exclude='.github' \
+                   --exclude='.gitignore' \
+                   --exclude='.luarc.json' \
+                   --exclude='tools' \
+                   ./ "build/${FOLDER}/"
+          cd build
+          zip -r "../${FOLDER}.zip" "${FOLDER}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.info.outputs.folder }}.zip
+          generate_release_notes: true
