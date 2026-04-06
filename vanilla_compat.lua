@@ -6,9 +6,9 @@
 -- spawns on their own fresh copy of the Nauvis surface generated from the
 -- same seed as the shared Nauvis, giving everyone an identical starting world.
 --
--- Surface naming: "st-<player_index>-nauvis"
--- Using player index (not name) avoids surface-name conflicts when player
--- names contain hyphens.
+-- Surface naming: "<force_name>-<planet>" e.g. "player-bob-nauvis"
+-- Using force name (not player name/index) so the surface is identifiable
+-- by its owning force, which supports multi-player teams in the future.
 --
 -- storage.player_surfaces[player_index] = {name = surface_name, planet = "nauvis"}
 
@@ -34,8 +34,8 @@ end
 --- Teleport is deferred to the next tick via storage.pending_vanilla_tp so
 --- it is safe to call from on_player_created before the character is ready.
 function M.setup_player_surface(player)
-    local planet   = "nauvis"
-    local surf_name = "st-" .. player.index .. "-" .. planet
+    local planet    = "nauvis"
+    local surf_name = player.force.name .. "-" .. planet
 
     local surface = game.surfaces[surf_name]
     if not surface then

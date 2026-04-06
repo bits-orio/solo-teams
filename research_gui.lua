@@ -166,7 +166,8 @@ local function get_player_forces()
     local result = {}
     local seen   = {}
     for _, force in pairs(game.forces) do
-        if force.name ~= "enemy" and force.name ~= "neutral" and force.name ~= "player" then
+        if force.name ~= "enemy" and force.name ~= "neutral"
+           and force.name ~= "player" and force.name ~= "spectator" then
             local owner = force.name:match("^player%-(.+)$") or force.name
             if not seen[owner] then
                 seen[owner] = true

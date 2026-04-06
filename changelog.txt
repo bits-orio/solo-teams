@@ -1,4 +1,29 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.12
+Date: 2026-04-05
+  Features:
+    - Spectator system: view other players' surfaces via a dedicated spectator force
+    - Spectate button (magnifying glass) on each player's platform/surface row
+    - Friend-view: friends bypass spectator force and get direct remote view
+    - Mutual friendship: both sides must agree to activate, either side can break
+    - Friendship request states: request friend (blue), pending (yellow), friends (green)
+    - Chat prefix shows "[on X's base][spectator]" or "[on X's base][friend]" context
+    - Admin flag: "Spectate Notifications" to toggle spectation announcements
+    - Admin flag changes now broadcast to all players
+    - Crafting queue freezes while spectating, resumes on exit
+    - "Stop spectating" button shows "(crafting paused)" when crafting queue is active
+    - Surface visibility: other players' surfaces hidden from map sidebar unless friends
+  Changes:
+    - GPS ping buttons replaced with spectate buttons in Players GUI
+    - Friendship is now mutual (requires both sides) instead of one-directional
+    - Friend/unfriend downgrade: losing friendship while viewing switches to spectator mode
+    - Spectator force hidden from all player-facing GUIs (Players, Research, Stats)
+    - Players GUI uses effective force for all comparisons (correct during spectation)
+    - Vanilla surface naming changed from "st-<index>-<planet>" to "<force>-<planet>"
+  Bugfixes:
+    - Fix player color showing as white when spectating (now uses game.get_player lookup)
+
+---------------------------------------------------------------------------------------------------
 Version: 0.2.11
 Date: 2026-04-04
   Features:

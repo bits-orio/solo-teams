@@ -7,6 +7,7 @@
 -- toggle checkboxes.
 
 local nav = require("nav")
+local spectator_mod = require("spectator")
 
 local M = {}
 
@@ -47,7 +48,8 @@ function M.get_platforms_by_owner()
         -- "player" is the default force used by Platformer for Base One —
         -- which we leave intact so Platformer doesn't crash, but hide here
         -- since solo players are always on their own "player-X" force.
-        if force.name ~= "enemy" and force.name ~= "neutral" and force.name ~= "player" then
+        if force.name ~= "enemy" and force.name ~= "neutral"
+           and force.name ~= "player" and force.name ~= "spectator" then
             local has_platforms = false
             for _ in pairs(force.platforms) do has_platforms = true; break end
             if has_platforms then
@@ -56,19 +58,27 @@ function M.get_platforms_by_owner()
                 owners[owner] = {}
                 order[#order + 1] = owner
                 owner_info[owner] = {gps = "", color = {1, 1, 1}, force_name = force.name, online = false}
-                -- Find the connected player matching this owner for live GPS/color
-                for _, p in pairs(force.connected_players) do
-                    if p.name == owner or force.name == "player" then
-                        owner_info[owner].gps = get_player_gps(p)
-                        owner_info[owner].color = p.chat_color
-                        owner_info[owner].online = true
-                        break
-                    end
+                -- Find the player matching this owner for color/GPS.
+                -- Can't rely solely on force.connected_players because
+                -- a spectating player is temporarily on the spectator force.
+                local owner_player = game.get_player(owner)
+                if owner_player and owner_player.connected then
+                    owner_info[owner].gps = get_player_gps(owner_player)
+                    owner_info[owner].color = owner_player.chat_color
+                    owner_info[owner].online = true
                 end
                 for _, platform in pairs(force.platforms) do
                     local location = platform.space_location and platform.space_location.name or "in transit"
                     local gps = get_platform_gps(platform)
-                    owners[owner][#owners[owner] + 1] = {name = platform.name, location = location, gps = gps}
+                    local hub = platform.hub
+                    local hub_pos = (hub and hub.valid) and hub.position or nil
+                    owners[owner][#owners[owner] + 1] = {
+                        name = platform.name,
+                        location = location,
+                        gps = gps,
+                        surface_name = platform.surface and platform.surface.name or nil,
+                        position = hub_pos and {x = hub_pos.x, y = hub_pos.y} or {x = 0, y = 0},
+                    }
                 end
             end
         end
@@ -93,15 +103,17 @@ function M.get_platforms_by_owner()
                     owner_info[owner] = {
                         gps        = get_player_gps(p),
                         color      = p.chat_color,
-                        force_name = p.force.name,
+                        force_name = spectator_mod.get_effective_force(p),
                         online     = p.connected,
                     }
                 end
                 local planet_disp = ps.planet:sub(1, 1):upper() .. ps.planet:sub(2)
                 owners[owner][#owners[owner] + 1] = {
-                    name     = p.name .. "'s base on " .. planet_disp,
-                    location = planet_disp,
-                    gps      = string.format("[gps=0,0,%s]", ps.name),
+                    name         = p.name .. "'s base on " .. planet_disp,
+                    location     = planet_disp,
+                    gps          = string.format("[gps=0,0,%s]", ps.name),
+                    surface_name = ps.name,
+                    position     = {x = 0, y = 0},
                 }
             end
         end
@@ -186,6 +198,10 @@ function M.build_platforms_gui(player)
     tbl.style.horizontal_spacing = 12
     tbl.style.vertical_spacing = 2
 
+    -- Use effective force (real force when spectating) for all comparisons
+    local viewer_force_name = spectator_mod.get_effective_force(player)
+    local viewer_force = game.forces[viewer_force_name]
+
     local owners, order, owner_info = M.get_platforms_by_owner()
     for _, owner in ipairs(order) do
         -- Player name row (col 1): bold, colored by chat_color; grey + "(offline)" when disconnected
@@ -203,22 +219,59 @@ function M.build_platforms_gui(player)
 
         -- Player name row (col 2): friend checkbox (only for other players)
         local target_force_name = owner_info[owner].force_name
-        if target_force_name ~= player.force.name then
+        if target_force_name ~= viewer_force_name then
             local target_force = game.forces[target_force_name]
-            if target_force then
-                local is_friend = player.force.get_friend(target_force)
+            -- Friendship checkbox states:
+                -- State                     | Label            | Color  | Checked | Tooltip
+                -- No intents                | "request friend" | blue   | no      | "Send friend request to X"
+                -- I requested, they haven't | "request pending"| yellow | yes     | "Withdraw friend request to X"
+                -- They requested, I haven't | "request pending"| yellow | no      | "Accept friend request from X"
+                -- Mutual active             | "friends"        | green  | yes     | "Break friendship with X"
+            if viewer_force and target_force then
+                local intents = storage.friend_intents or {}
+                local my_intent = intents[viewer_force_name]
+                    and intents[viewer_force_name][target_force_name] or false
+                local their_intent = intents[target_force_name]
+                    and intents[target_force_name][viewer_force_name] or false
+                local is_mutual = viewer_force.get_friend(target_force)
                 local friend_flow = tbl.add{type = "flow", direction = "horizontal"}
                 friend_flow.style.horizontal_align = "right"
                 friend_flow.style.horizontally_stretchable = true
-                local friend_label = friend_flow.add{type = "label", caption = "friend"}
+                local lbl_text, lbl_color, tip, checked
+                if is_mutual then
+                    -- Active mutual friendship
+                    lbl_text  = "friends"
+                    lbl_color = {0, 1, 0}
+                    tip       = "Break friendship with " .. owner
+                    checked   = true
+                elseif my_intent then
+                    -- I requested, waiting for them
+                    lbl_text  = "request pending"
+                    lbl_color = {1, 0.8, 0}
+                    tip       = "Withdraw friend request to " .. owner
+                    checked   = true
+                elseif their_intent then
+                    -- They requested, I haven't accepted yet
+                    lbl_text  = "request pending"
+                    lbl_color = {1, 0.8, 0}
+                    tip       = "Accept friend request from " .. owner
+                    checked   = false
+                else
+                    -- No intents from either side
+                    lbl_text  = "request friend"
+                    lbl_color = {0.4, 0.7, 1}
+                    tip       = "Send friend request to " .. owner
+                    checked   = false
+                end
+                local friend_label = friend_flow.add{type = "label", caption = lbl_text}
                 friend_label.style.font = "default-small"
-                friend_label.style.font_color = {0, 1, 0}
+                friend_label.style.font_color = lbl_color
                 friend_label.style.right_margin = 4
                 friend_flow.add{
                     type = "checkbox",
-                    state = is_friend,
+                    state = checked,
                     tags = {sb_friend_toggle = true, sb_target_force = target_force_name},
-                    tooltip = is_friend and ("Unfriend " .. owner) or ("Friend " .. owner)
+                    tooltip = tip
                 }
             else
                 tbl.add{type = "label", caption = ""}
@@ -227,18 +280,26 @@ function M.build_platforms_gui(player)
             tbl.add{type = "label", caption = ""}
         end
 
-        -- Platform rows: indented name (small font) + GPS button | location
+        -- Platform rows: indented name (small font) + spectate button | location
+        local is_own = (target_force_name == viewer_force_name)
+        local is_current_target = (target_force_name == spectator_mod.get_target(player))
         for _, info in ipairs(owners[owner]) do
             local plat_flow = tbl.add{type = "flow", direction = "horizontal"}
             local plat_label = plat_flow.add{type = "label", caption = "  " .. info.name}
             plat_label.style.font = "default-small"
-            if info.gps ~= "" then
+            -- Spectate button: skip own surfaces and the currently spectated player
+            if not is_own and not is_current_target and info.surface_name then
                 plat_flow.add{
                     type = "sprite-button",
-                    sprite = "utility/gps_map_icon",
-                    tags = {sb_gps = info.gps, sb_gps_label = info.name, sb_gps_type = "platform"},
+                    sprite = "utility/search_icon",
+                    tags = {
+                        sb_spectate = true,
+                        sb_target_force = target_force_name,
+                        sb_surface = info.surface_name,
+                        sb_position = info.position,
+                    },
                     style = "mini_button",
-                    tooltip = "Ping " .. info.name
+                    tooltip = "Spectate " .. owner .. "'s " .. info.name
                 }
             end
             local loc_label = tbl.add{type = "label", caption = info.location}
@@ -252,9 +313,12 @@ function M.build_platforms_gui(player)
     end
 
     -- Footer: return button, shown when the player is away from their own base.
-    -- Checks space platform first, then vanilla surface.
+    -- Uses effective force (real force when spectating) to find home surface.
+    local eff_force = viewer_force
     local own_platform
-    for _, p in pairs(player.force.platforms) do own_platform = p; break end
+    if eff_force then
+        for _, p in pairs(eff_force.platforms) do own_platform = p; break end
+    end
     local return_surface
     if own_platform and own_platform.surface then
         return_surface = own_platform.surface
@@ -264,6 +328,7 @@ function M.build_platforms_gui(player)
         if vs and vs.valid then return_surface = vs end
     end
     if return_surface and player.surface.index ~= return_surface.index then
+        local is_spec = spectator_mod.is_spectating(player)
         local footer = frame.add{type = "flow", direction = "horizontal"}
         footer.style.top_margin = 4
         footer.style.horizontal_align = "center"
@@ -271,9 +336,14 @@ function M.build_platforms_gui(player)
         footer.add{
             type    = "button",
             name    = "sb_return_to_base",
-            caption = "Return to my base",
+            caption = is_spec
+                and (player.crafting_queue_size > 0
+                     and "Stop spectating (crafting paused)"
+                     or  "Stop spectating")
+                or "Return to my base",
             style   = "button",
-            tooltip = "Teleport back to your space platform",
+            tooltip = is_spec and "Stop spectating and return to your base"
+                                or "Teleport back to your space platform",
         }
     end
 end
@@ -294,10 +364,14 @@ function M.on_gui_click(event)
     local element = event.element
     if not element or not element.valid then return end
 
-    -- Return-to-base button: teleport player to their own base surface.
+    -- Return-to-base button: exit spectation if needed, then teleport home.
     if element.name == "sb_return_to_base" then
         local player = game.get_player(event.player_index)
         if player then
+            -- Exit spectation first (restores real force)
+            if spectator_mod.is_spectating(player) then
+                spectator_mod.exit(player)
+            end
             local own_platform
             for _, p in pairs(player.force.platforms) do own_platform = p; break end
             if own_platform and own_platform.surface then
@@ -324,19 +398,26 @@ function M.on_gui_click(event)
         return true
     end
 
-    -- GPS ping button: print a colored GPS tag to the player's chat
-    if element.tags and element.tags.sb_gps then
+    -- Spectate button: enter/switch spectation or friend-view
+    if element.tags and element.tags.sb_spectate then
         local player = game.get_player(event.player_index)
         if player then
-            local label = element.tags.sb_gps_label or ""
-            local gps = element.tags.sb_gps
-            if element.tags.sb_gps_type == "player" then
-                -- Player pings use the player's chat color
-                local color = element.tags.sb_gps_color or "1,1,1"
-                player.print("[color=" .. color .. "]" .. label .. "[/color] " .. gps)
-            else
-                -- Platform pings use neutral grey
-                player.print("[color=0.7,0.7,0.7]" .. label .. "[/color] " .. gps)
+            local target_force = game.forces[element.tags.sb_target_force]
+            local surface = game.surfaces[element.tags.sb_surface]
+            local position = element.tags.sb_position or {x = 0, y = 0}
+
+            if target_force and surface then
+                local viewer_force = game.forces[spectator_mod.get_effective_force(player)]
+                if viewer_force and spectator_mod.needs_spectator_mode(viewer_force, target_force) then
+                    if spectator_mod.is_spectating(player) then
+                        spectator_mod.switch_target(player, target_force, surface, position)
+                    else
+                        spectator_mod.enter(player, target_force, surface, position)
+                    end
+                else
+                    -- Friend view — direct remote view
+                    spectator_mod.enter_friend_view(player, surface, position)
+                end
             end
         end
         return true
@@ -345,8 +426,9 @@ function M.on_gui_click(event)
     return false
 end
 
---- Handle friend checkbox toggle. Each player independently controls
---- their own force's friendship toward another force (one-directional).
+--- Handle friend checkbox toggle. Friendship is mutual: both sides must
+--- agree before it activates. Either side can break it immediately.
+--- Intents are stored per-force in storage.friend_intents.
 function M.on_friend_toggle(event)
     local element = event.element
     if not element or not element.valid then return end
@@ -358,34 +440,80 @@ function M.on_friend_toggle(event)
     local target_force = game.forces[element.tags.sb_target_force]
     if not target_force then return end
 
-    local new_state = element.state
-    player.force.set_friend(target_force, new_state)
+    -- Use effective force (real force when spectating)
+    local viewer_force_name = spectator_mod.get_effective_force(player)
+    local viewer_force = game.forces[viewer_force_name]
+    if not viewer_force then return end
 
-    -- Announce friendship change to all players, showing both sides.
-    local target_name = target_force.name:match("^player%-(.+)$") or target_force.name
-    local reverse = target_force.get_friend(player.force)
-    local action = new_state and "friended" or "unfriended"
-    local mutual
-    if new_state and reverse then
-        mutual = " [color=0,1,0](mutual)[/color]"
-    elseif not new_state and not reverse then
-        mutual = " (neither side)"
+    local target_force_name = target_force.name
+    local target_name = target_force_name:match("^player%-(.+)$") or target_force_name
+
+    -- Color helpers for announcements
+    local vc = player.chat_color
+    local tc = target_force.connected_players[1]
+        and target_force.connected_players[1].chat_color
+        or {r = 1, g = 1, b = 1}
+    local viewer_tag = string.format("[color=%.2f,%.2f,%.2f]%s[/color]",
+        vc.r, vc.g, vc.b, player.name)
+    local target_tag = string.format("[color=%.2f,%.2f,%.2f]%s[/color]",
+        tc.r, tc.g, tc.b, target_name)
+
+    storage.friend_intents = storage.friend_intents or {}
+    storage.friend_intents[viewer_force_name] = storage.friend_intents[viewer_force_name] or {}
+
+    local new_state = element.state
+    local msg
+
+    if new_state then
+        -- Record this side's intent
+        storage.friend_intents[viewer_force_name][target_force_name] = true
+
+        -- Check if reverse intent exists
+        local reverse = storage.friend_intents[target_force_name]
+            and storage.friend_intents[target_force_name][viewer_force_name]
+
+        if reverse then
+            -- Both sides agree → activate mutual friendship
+            viewer_force.set_friend(target_force, true)
+            target_force.set_friend(viewer_force, true)
+            spectator_mod.on_friend_changed(viewer_force, target_force, true)
+            spectator_mod.on_friend_changed(target_force, viewer_force, true)
+            spectator_mod.update_surface_visibility(viewer_force, target_force, true)
+            msg = viewer_tag .. " and " .. target_tag
+                .. " are now [color=0,1,0]friends[/color]"
+        else
+            msg = viewer_tag .. " wants to friend " .. target_tag
+                .. " [color=1,0.8,0](pending)[/color]"
+        end
     else
-        local one_way_name = reverse and target_name or player.name
-        mutual = " (one-way: only " .. one_way_name .. " → friend)"
+        -- Remove this side's intent
+        storage.friend_intents[viewer_force_name][target_force_name] = nil
+
+        local was_mutual = viewer_force.get_friend(target_force)
+
+        if was_mutual then
+            -- Break both directions
+            storage.friend_intents[target_force_name] = storage.friend_intents[target_force_name] or {}
+            storage.friend_intents[target_force_name][viewer_force_name] = nil
+
+            viewer_force.set_friend(target_force, false)
+            target_force.set_friend(viewer_force, false)
+            spectator_mod.on_friend_changed(viewer_force, target_force, false)
+            spectator_mod.on_friend_changed(target_force, viewer_force, false)
+            spectator_mod.update_surface_visibility(viewer_force, target_force, false)
+            msg = viewer_tag .. " and " .. target_tag .. " are no longer friends"
+        else
+            msg = viewer_tag .. " withdrew friend request to " .. target_tag
+        end
     end
-    local msg = "[color=" .. string.format("%.2f,%.2f,%.2f", player.chat_color.r, player.chat_color.g, player.chat_color.b)
-        .. "]" .. player.name .. "[/color] " .. action .. " "
-        .. "[color=" .. string.format("%.2f,%.2f,%.2f",
-            (target_force.connected_players[1] and target_force.connected_players[1].chat_color.r or 1),
-            (target_force.connected_players[1] and target_force.connected_players[1].chat_color.g or 1),
-            (target_force.connected_players[1] and target_force.connected_players[1].chat_color.b or 1))
-        .. "]" .. target_name .. "[/color]" .. mutual
+
     for _, p in pairs(game.players) do
         if p.connected then p.print(msg) end
     end
 
-    M.build_platforms_gui(player)
+    -- Rebuild all players' GUIs: friendship changes may upgrade/bounce spectators,
+    -- changing button text and visibility for affected players.
+    M.update_all()
 end
 
 --- Toggle the platforms panel open/closed for a player.

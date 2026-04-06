@@ -26,12 +26,18 @@ local FLAGS = {
         label   = "Buddy Join",
         tooltip = "When enabled, players in the Landing Pen can request to join another player's force.",
     },
+    {
+        key     = "spectate_notifications_enabled",
+        label   = "Spectate Notifications",
+        tooltip = "When enabled, all players are notified when someone starts or stops spectating.",
+    },
 }
 
 -- Defaults used on first init.
 local FLAG_DEFAULTS = {
-    landing_pen_enabled = true,
-    buddy_join_enabled  = false,
+    landing_pen_enabled             = true,
+    buddy_join_enabled              = false,
+    spectate_notifications_enabled  = false,
 }
 
 -- ---------------------------------------------------------------------------
@@ -52,6 +58,14 @@ end
 --- Read a single flag value.
 function M.flag(key)
     return M.get_flags()[key]
+end
+
+--- Return the human-readable label for a flag key.
+function M.get_flag_label(key)
+    for _, def in ipairs(FLAGS) do
+        if def.key == key then return def.label end
+    end
+    return key
 end
 
 -- ---------------------------------------------------------------------------

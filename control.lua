@@ -16,6 +16,7 @@ local vanilla_compat    = require("vanilla_compat")
 local admin_gui         = require("admin_gui")
 local welcome_gui       = require("welcome_gui")
 local research_gui      = require("research_gui")
+local spectator_mod     = require("spectator")
 
 --- Copy all researched technologies, quality unlocks, and space platform
 --- unlock from one force to another. This is generic and works regardless
@@ -63,6 +64,9 @@ local function create_player_force(player)
             other_force.set_cease_fire(new_force, true)
         end
     end
+
+    -- Integrate with spectator force (friendship + cease-fire + share_chart)
+    spectator_mod.setup_force(new_force)
 end
 
 --- Mark a player's clock as started (called when they first land on a real surface).
@@ -80,9 +84,9 @@ end
 local function on_foreign_surface(player)
     local surface = player.surface
     if not surface then return false end
-    -- Vanilla solo surfaces are named "player-<player_index>"
-    local owner_idx = tonumber(surface.name:match("^player%-(%d+)$"))
-    if owner_idx and owner_idx ~= player.index then return true end
+    -- Vanilla solo surfaces are named "<force_name>-<planet>"
+    local owner_force = surface.name:match("^(player%-.+)%-%w+$")
+    if owner_force and owner_force ~= player.force.name then return true end
     -- Space platform surfaces: check all other forces' platforms
     for _, force in pairs(game.forces) do
         if force ~= player.force and force.name ~= "enemy" and force.name ~= "neutral" then
@@ -158,6 +162,13 @@ end
 --- research GUIs are rebuilt by their respective events.
 local function init_events()
     script.on_event(defines.events.on_chunk_generated, landing_pen.on_chunk_generated)
+    -- Hide newly created surfaces from non-owner, non-friend forces
+    script.on_event(defines.events.on_surface_created, function(event)
+        local surface = game.surfaces[event.surface_index]
+        if surface then spectator_mod.on_surface_created(surface) end
+    end)
+    -- Periodic spectator chart cleanup (~5 minutes)
+    script.on_nth_tick(18000, function() spectator_mod.cleanup_charts() end)
     script.on_event(defines.events.on_tick, function()
         landing_pen.process_pending_teleports()
         if platformer_compat.is_active() then
@@ -219,6 +230,8 @@ script.on_init(function()
     storage.research_gui_expanded = {}  -- per-player expanded state {[viewer_idx] = {[owner] = bool}}
     storage.research_gui_diff_target = {} -- per-player diff target {[viewer_idx] = owner_name}
     admin_gui.get_flags()               -- initialise flag defaults
+    spectator_mod.init()
+    spectator_mod.init_storage()
     commands_mod.register()
     init_events()
 end)
@@ -246,6 +259,7 @@ script.on_load(function()
     storage.research_gui_location    = storage.research_gui_location    or {}
     storage.research_gui_expanded    = storage.research_gui_expanded    or {}
     storage.research_gui_diff_target = storage.research_gui_diff_target or {}
+    spectator_mod.init_storage()
     commands_mod.register()
     init_events()
 end)
@@ -269,6 +283,8 @@ script.on_configuration_changed(function()
         end
     end
     stats_gui.invalidate_categories()
+    spectator_mod.init()
+    spectator_mod.init_storage()
     init_events()
 end)
 
@@ -403,8 +419,10 @@ local function rebuild_for_connectivity(leaving_index)
 end
 
 script.on_event(defines.events.on_player_joined_game, function(event)
-    -- If this player hasn't spawned yet, ensure they're shown the pen GUI.
     local player = game.get_player(event.player_index)
+    -- Defensive cleanup: restore force if player was spectating when they disconnected.
+    if player then spectator_mod.on_player_joined(player) end
+    -- If this player hasn't spawned yet, ensure they're shown the pen GUI.
     if player and landing_pen.is_in_pen(player) then
         landing_pen.place_player(player)
     end
@@ -422,6 +440,8 @@ script.on_event(defines.events.on_player_joined_game, function(event)
 end)
 
 script.on_event(defines.events.on_player_left_game, function(event)
+    local player = game.get_player(event.player_index)
+    if player then spectator_mod.on_player_left(player) end
     rebuild_for_connectivity(event.player_index)
 end)
 
@@ -445,6 +465,16 @@ end)
 script.on_event(defines.events.on_gui_checked_state_changed, function(event)
     local changed_flag = admin_gui.on_gui_checked_state_changed(event)
     if changed_flag then
+        -- Announce admin flag changes to all players
+        local admin_player = game.get_player(event.player_index)
+        if admin_player then
+            local state_str = admin_gui.flag(changed_flag) and "enabled" or "disabled"
+            local label = admin_gui.get_flag_label(changed_flag)
+            local msg = "[Admin] " .. admin_player.name .. " " .. state_str .. " " .. label
+            for _, p in pairs(game.players) do
+                if p.connected then p.print(msg) end
+            end
+        end
         -- When landing pen is disabled mid-session, immediately spawn every
         -- player still waiting in the pen so they aren't left stranded.
         if changed_flag == "buddy_join_enabled" then
@@ -477,6 +507,13 @@ end)
 script.on_event(defines.events.on_player_changed_surface, function(event)
     local player = game.get_player(event.player_index)
     if player and player.connected then
+        -- Safety: if player is on spectator force but no longer in remote view,
+        -- restore their real force. Catches edge cases where on_controller_changed
+        -- didn't fire or was blocked by permissions.
+        if spectator_mod.is_spectating(player)
+           and player.controller_type ~= defines.controllers.remote then
+            spectator_mod.exit(player)
+        end
         log("[solo-teams] surface_change: " .. player.name
             .. " → " .. (player.surface and player.surface.name or "nil"))
         bounce_if_foreign(player)
@@ -484,11 +521,12 @@ script.on_event(defines.events.on_player_changed_surface, function(event)
     end
 end)
 
--- When a player exits remote view, ensure they land on their own surface
--- rather than being stranded on the foreign surface they were inspecting.
+-- When a player exits remote view: first exit spectator mode (restoring
+-- their real force), then bounce them home if they're on a foreign surface.
 script.on_event(defines.events.on_player_controller_changed, function(event)
     local player = game.get_player(event.player_index)
     if player and player.connected then
+        spectator_mod.on_controller_changed(player, event.old_controller_type)
         bounce_if_foreign(player)
     end
 end)
@@ -500,9 +538,11 @@ script.on_event(defines.events.on_console_chat, function(event)
     if not event.player_index then return end
     local author = game.get_player(event.player_index)
     if not author then return end
+    local prefix = spectator_mod.get_chat_prefix(author)
     for _, player in pairs(game.players) do
         if player.force ~= author.force then
-            player.print(author.name .. ": " .. event.message, {color = author.color})
+            player.print(prefix .. author.name .. ": " .. event.message,
+                         {color = author.color})
         end
     end
 end)
