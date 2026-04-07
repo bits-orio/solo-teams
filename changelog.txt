@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.14
+Date: 2026-04-06
+  Features:
+    - VoidBlock mod compatibility: each player gets their own Nauvis with void-island terrain
+    - Pre-generate chunks around spawn so players never see default terrain flash
+  Changes:
+    - Stats GUI: active category and time period buttons use green_button style for visibility
+
+---------------------------------------------------------------------------------------------------
 Version: 0.2.13
 Date: 2026-04-06
   Features:
