@@ -139,9 +139,7 @@ local function add_pen_player_list(frame, viewer)
     for _, p in ipairs(in_pen) do
         local lbl = frame.add{type = "label", caption = "  \xE2\x80\xA2 " .. p.name}
         lbl.style.left_margin = 4
-        if p.index == viewer.index then
-            lbl.style.font_color = {1, 1, 0.6}
-        elseif p.connected then
+        if p.connected then
             lbl.style.font_color = p.chat_color
         else
             lbl.style.font_color = {0.65, 0.65, 0.65}
@@ -152,22 +150,26 @@ end
 --- Add the already-spawned player list to the frame.
 local function add_spawned_player_list(frame)
     storage.spawned_players = storage.spawned_players or {}
-    local spawned_list = {}
+    local spawned = {}
     for idx in pairs(storage.spawned_players) do
         local p = game.get_player(idx)
-        if p then spawned_list[#spawned_list + 1] = p.name end
+        if p then spawned[#spawned + 1] = p end
     end
-    if #spawned_list == 0 then return end
+    if #spawned == 0 then return end
 
-    table.sort(spawned_list)
+    table.sort(spawned, function(a, b) return a.name < b.name end)
     local hdr = frame.add{type = "label", caption = "Already spawned:"}
     hdr.style.font        = "default-bold"
     hdr.style.left_margin = 4
     hdr.style.top_margin  = 6
-    for _, name in ipairs(spawned_list) do
-        local lbl = frame.add{type = "label", caption = "  \xE2\x80\xA2 " .. name}
-        lbl.style.font_color = {0.5, 0.5, 0.5}
+    for _, p in ipairs(spawned) do
+        local lbl = frame.add{type = "label", caption = "  \xE2\x80\xA2 " .. p.name}
         lbl.style.left_margin = 4
+        if p.connected then
+            lbl.style.font_color = p.chat_color
+        else
+            lbl.style.font_color = {0.5, 0.5, 0.5}
+        end
     end
 end
 
