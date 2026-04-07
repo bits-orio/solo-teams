@@ -370,7 +370,7 @@ function stats_gui.build_stats_gui(player, leaving_index)
             type    = "button",
             name    = "sb_stats_cat_" .. cat,
             caption = sel and ("> " .. CAT_LABELS[cat]) or CAT_LABELS[cat],
-            style   = "button",
+            style   = sel and "green_button" or "button",
         }
     end
 
@@ -385,7 +385,7 @@ function stats_gui.build_stats_gui(player, leaving_index)
             type    = "button",
             name    = "sb_stats_time_" .. tp.key,
             caption = sel and ("> " .. tp.label) or tp.label,
-            style   = "button",
+            style   = sel and "green_button" or "button",
         }
     end
 
