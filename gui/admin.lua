@@ -8,7 +8,9 @@
 -- Tab: Feature Flags
 --   landing_pen_enabled  — whether new players land in the pen or spawn directly
 
-local M = {}
+local helpers = require("helpers")
+
+local admin_gui = {}
 
 -- ---------------------------------------------------------------------------
 -- Flag definitions
@@ -45,7 +47,7 @@ local FLAG_DEFAULTS = {
 -- ---------------------------------------------------------------------------
 
 --- Return the admin_flags table, initialising defaults for any missing keys.
-function M.get_flags()
+function admin_gui.get_flags()
     storage.admin_flags = storage.admin_flags or {}
     for k, v in pairs(FLAG_DEFAULTS) do
         if storage.admin_flags[k] == nil then
@@ -56,12 +58,12 @@ function M.get_flags()
 end
 
 --- Read a single flag value.
-function M.flag(key)
-    return M.get_flags()[key]
+function admin_gui.flag(key)
+    return admin_gui.get_flags()[key]
 end
 
 --- Return the human-readable label for a flag key.
-function M.get_flag_label(key)
+function admin_gui.get_flag_label(key)
     for _, def in ipairs(FLAGS) do
         if def.key == key then return def.label end
     end
@@ -84,41 +86,15 @@ end
 
 --- Build (or rebuild) the admin panel for one player.
 --- No-ops if the player is not an admin.
-function M.build_admin_gui(player)
+function admin_gui.build_admin_gui(player)
     if not is_admin(player) then return end
 
-    local screen = player.gui.screen
     storage.admin_gui_location = storage.admin_gui_location or {}
-
-    -- Reuse existing frame (preserves drag state); create only if absent
-    local frame = screen.sb_admin_frame
-    if frame then
-        storage.admin_gui_location[player.index] = frame.location
-        frame.clear()
-    else
-        frame = screen.add{
-            type      = "frame",
-            name      = "sb_admin_frame",
-            direction = "vertical",
-        }
-        if storage.admin_gui_location[player.index] then
-            frame.location = storage.admin_gui_location[player.index]
-        else
-            frame.location = {x = 270, y = 200}
-        end
-    end
+    local frame = helpers.reuse_or_create_frame(
+        player, "sb_admin_frame", storage.admin_gui_location, {x = 270, y = 200})
 
     local collapsed = is_collapsed(player)
-
-    -- Title bar
-    local title_bar = frame.add{type = "flow", direction = "horizontal"}
-    title_bar.style.vertical_align = "center"
-    title_bar.drag_target = frame
-    title_bar.add{type = "label", caption = "Admin", style = "frame_title"}
-    local spacer = title_bar.add{type = "empty-widget", style = "draggable_space_header"}
-    spacer.style.horizontally_stretchable = true
-    spacer.style.height = 24
-    spacer.drag_target = frame
+    local title_bar = helpers.add_title_bar(frame, "Admin")
     title_bar.add{
         type    = "sprite-button",
         name    = "sb_admin_toggle",
@@ -146,7 +122,7 @@ function M.build_admin_gui(player)
     tabs.add_tab(flags_tab, flags_content)
     tabs.selected_tab_index = 1
 
-    local flags = M.get_flags()
+    local flags = admin_gui.get_flags()
     for _, def in ipairs(FLAGS) do
         local row = flags_content.add{type = "flow", direction = "horizontal"}
         row.style.vertical_align    = "center"
@@ -165,12 +141,12 @@ end
 --- Ensure the admin panel exists for all connected admins; destroy it for non-admins.
 --- Only creates the panel if it doesn't exist yet — periodic rebuilds are unnecessary
 --- because flag changes already trigger their own rebuild via checkbox handlers.
-function M.update_all()
+function admin_gui.update_all()
     for _, player in pairs(game.players) do
         if player.connected then
             if is_admin(player) then
                 if not player.gui.screen.sb_admin_frame then
-                    M.build_admin_gui(player)
+                    admin_gui.build_admin_gui(player)
                 end
             elseif player.gui.screen.sb_admin_frame then
                 player.gui.screen.sb_admin_frame.destroy()
@@ -180,7 +156,7 @@ function M.update_all()
 end
 
 --- Handle click events. Returns true if consumed.
-function M.on_gui_click(event)
+function admin_gui.on_gui_click(event)
     local el = event.element
     if not el or not el.valid then return false end
 
@@ -189,7 +165,7 @@ function M.on_gui_click(event)
         if player and is_admin(player) then
             storage.admin_gui_collapsed = storage.admin_gui_collapsed or {}
             storage.admin_gui_collapsed[player.index] = not is_collapsed(player)
-            M.build_admin_gui(player)
+            admin_gui.build_admin_gui(player)
         end
         return true
     end
@@ -200,7 +176,7 @@ end
 --- Handle checkbox changes.
 --- Returns the changed flag key (truthy = consumed) so the caller can apply
 --- side effects, or false if the event was not an admin flag change.
-function M.on_gui_checked_state_changed(event)
+function admin_gui.on_gui_checked_state_changed(event)
     local el = event.element
     if not el or not el.valid then return false end
     if not (el.tags and el.tags.sb_admin_flag) then return false end
@@ -209,7 +185,7 @@ function M.on_gui_checked_state_changed(event)
     if not (player and is_admin(player)) then return false end
 
     local key = el.tags.sb_admin_flag
-    local flags = M.get_flags()
+    local flags = admin_gui.get_flags()
     flags[key] = el.state
     log("[solo-teams] admin flag changed by " .. player.name .. ": " .. key .. " = " .. tostring(el.state))
 
@@ -218,7 +194,7 @@ function M.on_gui_checked_state_changed(event)
 end
 
 --- Toggle the admin panel open/closed for a player.
-function M.toggle(player)
+function admin_gui.toggle(player)
     if not is_admin(player) then return end
     local frame = player.gui.screen.sb_admin_frame
     if frame then
@@ -226,7 +202,7 @@ function M.toggle(player)
         storage.admin_gui_location[player.index] = frame.location
         frame.destroy()
     else
-        M.build_admin_gui(player)
+        admin_gui.build_admin_gui(player)
     end
 end
 
@@ -234,8 +210,8 @@ end
 --- 60-tick update_all cycle for the host player (index 1).  Adding a
 --- button during on_player_created caused multiplayer desyncs because
 --- player.admin is not synchronised at that point.
-function M.on_player_created(_player)
+function admin_gui.on_player_created(_player)
     -- intentionally empty
 end
 
-return M
+return admin_gui

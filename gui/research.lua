@@ -28,9 +28,11 @@
 --   storage.player_clock_start[player_index] = game.tick of first real spawn
 --   storage.tech_research_ticks[force_name][tech_name] = game.tick researched
 
-local nav = require("nav")
+local nav           = require("gui.nav")
+local helpers       = require("helpers")
+local research_diff = require("gui.research_diff")
 
-local M = {}
+local research_gui = {}
 
 -- ---------------------------------------------------------------------------
 -- Constants
@@ -75,38 +77,23 @@ end
 -- Time formatting
 -- ---------------------------------------------------------------------------
 
---- Convert a tick count to a human-readable duration string ("1h 23m 45s").
-local function fmt_duration(ticks)
-    local s = math.floor(ticks / 60)
-    local h = math.floor(s / 3600); s = s % 3600
-    local m = math.floor(s / 60);   s = s % 60
-    if h > 0 then return string.format("%dh %02dm %02ds", h, m, s) end
-    if m > 0 then return string.format("%dm %02ds", m, s) end
-    return string.format("%ds", s)
-end
-
 --- Format play time since spawn (elapsed from clock_start to now).
 local function fmt_play_time(clock_tick)
     if not clock_tick then return "not yet spawned" end
     local elapsed = game.tick - clock_tick
     if elapsed < 0 then elapsed = 0 end
-    return fmt_duration(elapsed) .. " playing"
+    return research_diff.fmt_duration(elapsed) .. " playing"
 end
 
 -- ---------------------------------------------------------------------------
 -- Tech data helpers
 -- ---------------------------------------------------------------------------
 
---- Return the research-timestamp table for a force (may be empty table).
-local function force_ticks(force)
-    return (storage.tech_research_ticks or {})[force.name] or {}
-end
-
 --- Return sorted list of researched techs for a force.
 --- Each entry: { name, localised, tick, order }
 --- Sorted by tick ascending; techs with no tick appended last by tech.order.
 local function get_researched(force)
-    local ticks   = force_ticks(force)
+    local ticks   = research_diff.force_ticks(force)
     local stamped = {}
     local unstamp = {}
     for name, tech in pairs(force.technologies) do
@@ -125,37 +112,6 @@ local function get_researched(force)
     return stamped
 end
 
---- Build a tooltip string for a tech icon.
-local function tech_tooltip(entry, clock_start)
-    local name_line = entry.localised
-    if not entry.tick then
-        return {"", name_line, "\nResearched: (before tracking began)"}
-    end
-    if not clock_start then
-        return {"", name_line, "\nResearched: tick " .. entry.tick}
-    end
-    local elapsed = entry.tick - clock_start
-    if elapsed < 0 then elapsed = 0 end
-    return {"", name_line, "\nResearched: " .. fmt_duration(elapsed) .. " after spawn"}
-end
-
--- ---------------------------------------------------------------------------
--- Icon grid rendering (shared by overview and diff)
--- ---------------------------------------------------------------------------
-
---- Add tech icons to a table element. Each icon opens the tech tree on click.
-local function add_tech_icons(grid, tech_list, clock_start)
-    for _, entry in ipairs(tech_list) do
-        grid.add{
-            type    = "sprite-button",
-            sprite  = "technology/" .. entry.name,
-            tooltip = tech_tooltip(entry, clock_start),
-            style   = "slot_button",
-            tags    = {sb_research_open_tech = entry.name},
-        }
-    end
-end
-
 -- ---------------------------------------------------------------------------
 -- Player block helpers (overview)
 -- ---------------------------------------------------------------------------
@@ -168,7 +124,7 @@ local function get_player_forces()
     for _, force in pairs(game.forces) do
         if force.name ~= "enemy" and force.name ~= "neutral"
            and force.name ~= "player" and force.name ~= "spectator" then
-            local owner = force.name:match("^player%-(.+)$") or force.name
+            local owner = helpers.display_name(force.name)
             if not seen[owner] then
                 seen[owner] = true
                 local color   = {1, 1, 1}
@@ -216,7 +172,7 @@ local function draw_overview(content_frame, viewer_force, viewer_clock, viewer_i
         return
     end
 
-    local own_owner = viewer_force.name:match("^player%-(.+)$") or viewer_force.name
+    local own_owner = helpers.display_name(viewer_force.name)
 
     for _, info in ipairs(forces) do
         local techs    = get_researched(info.force)
@@ -315,186 +271,7 @@ local function draw_overview(content_frame, viewer_force, viewer_clock, viewer_i
             grid.style.vertical_spacing   = 0
             grid.style.top_margin         = 2
 
-            add_tech_icons(grid, display_techs, info.clock_start)
-        end
-    end
-end
-
--- ---------------------------------------------------------------------------
--- Diff mode
--- ---------------------------------------------------------------------------
-
-local function draw_diff(content_frame, viewer_force, viewer_clock, target_owner)
-    -- Resolve target force
-    local target_force_name = "player-" .. target_owner
-    local target_force = game.forces[target_force_name]
-    if not target_force then
-        content_frame.add{type = "label", caption = "Player '" .. target_owner .. "' not found."}
-        return
-    end
-
-    -- Target clock start
-    local target_clock
-    for _, p in pairs(game.players) do
-        if p.name == target_owner then
-            target_clock = (storage.player_clock_start or {})[p.index]
-            break
-        end
-    end
-
-    -- Back button
-    local back_btn = content_frame.add{
-        type    = "button",
-        name    = "sb_research_back",
-        caption = "< Back",
-        style   = "back_button",
-    }
-    back_btn.style.bottom_margin = 6
-
-    -- Context: who started earlier
-    local viewer_owner = viewer_force.name:match("^player%-(.+)$") or viewer_force.name
-    if viewer_clock and target_clock then
-        local diff_ticks = math.abs(viewer_clock - target_clock)
-        local context
-        if viewer_clock < target_clock then
-            context = "You started " .. fmt_duration(diff_ticks) .. " earlier than " .. target_owner
-        elseif target_clock < viewer_clock then
-            context = target_owner .. " started " .. fmt_duration(diff_ticks) .. " earlier than you"
-        else
-            context = "You both started at the same time"
-        end
-        local ctx_lbl = content_frame.add{type = "label", caption = context}
-        ctx_lbl.style.font         = "default-bold"
-        ctx_lbl.style.font_color   = {0.7, 0.9, 0.7}
-        ctx_lbl.style.bottom_margin = 8
-    end
-
-    -- Compute diff sets
-    local viewer_ticks = force_ticks(viewer_force)
-    local target_ticks = force_ticks(target_force)
-
-    -- both_have: researched by both
-    local both_have = {}
-    -- they_have: researched by target but NOT by viewer
-    local they_have = {}
-    -- you_have: researched by viewer but NOT by target
-    local you_have  = {}
-
-    for name, tech in pairs(target_force.technologies) do
-        if tech.researched then
-            if viewer_force.technologies[name] and viewer_force.technologies[name].researched then
-                both_have[#both_have + 1] = {
-                    name      = name,
-                    localised = tech.localised_name,
-                    tick      = target_ticks[name],
-                    order     = tech.order,
-                }
-            else
-                they_have[#they_have + 1] = {
-                    name      = name,
-                    localised = tech.localised_name,
-                    tick      = target_ticks[name],
-                    order     = tech.order,
-                }
-            end
-        end
-    end
-
-    for name, tech in pairs(viewer_force.technologies) do
-        if tech.researched and not (target_force.technologies[name] and target_force.technologies[name].researched) then
-            you_have[#you_have + 1] = {
-                name      = name,
-                localised = tech.localised_name,
-                tick      = viewer_ticks[name],
-                order     = tech.order,
-            }
-        end
-    end
-
-    -- Sort each set by timestamp (then tech.order for unstamped)
-    local function sort_diff(list)
-        local stamped, unstamped = {}, {}
-        for _, e in ipairs(list) do
-            if e.tick then stamped[#stamped+1] = e else unstamped[#unstamped+1] = e end
-        end
-        table.sort(stamped,   function(a, b) return a.tick  < b.tick  end)
-        table.sort(unstamped, function(a, b) return a.order < b.order end)
-        for _, v in ipairs(unstamped) do stamped[#stamped+1] = v end
-        return stamped
-    end
-    both_have = sort_diff(both_have)
-    they_have = sort_diff(they_have)
-    you_have  = sort_diff(you_have)
-
-    local cols = COLLAPSED_COLS
-
-    local function diff_section(title, list, clock_for_tooltip)
-        local hdr = content_frame.add{type = "label", caption = title .. "  (" .. #list .. ")"}
-        hdr.style.font          = "default-bold"
-        hdr.style.top_margin    = 6
-        hdr.style.bottom_margin = 2
-
-        if #list == 0 then
-            local none = content_frame.add{type = "label", caption = "(none)"}
-            none.style.font_color = {0.5, 0.5, 0.5}
-        else
-            local grid = content_frame.add{type = "table", column_count = cols}
-            grid.style.horizontal_spacing = 0
-            grid.style.vertical_spacing   = 0
-            add_tech_icons(grid, list, clock_for_tooltip)
-        end
-    end
-
-    -- Use viewer's clock for shared techs tooltip (arbitrary choice; both valid)
-    diff_section("You both have researched", both_have, viewer_clock)
-    diff_section(target_owner .. " has, you don't", they_have, target_clock)
-    diff_section("You have, " .. target_owner .. " doesn't", you_have, viewer_clock)
-
-    -- Infinite tech level differences
-    local inf_diffs = {}
-    for name, v_tech in pairs(viewer_force.technologies) do
-        local t_tech = target_force.technologies[name]
-        if v_tech.researched and t_tech and t_tech.researched then
-            local vl = (v_tech.level  or 1)
-            local tl = (t_tech.level  or 1)
-            if vl ~= tl then
-                inf_diffs[#inf_diffs + 1] = {
-                    name   = name,
-                    v_lvl  = vl,
-                    t_lvl  = tl,
-                    loc    = v_tech.localised_name,
-                }
-            end
-        end
-    end
-
-    if #inf_diffs > 0 then
-        table.sort(inf_diffs, function(a, b)
-            return tostring(a.name) < tostring(b.name)
-        end)
-        local hdr2 = content_frame.add{type = "label", caption = "Infinite tech level differences"}
-        hdr2.style.font         = "default-bold"
-        hdr2.style.top_margin   = 8
-        hdr2.style.bottom_margin = 2
-
-        local inf_tbl = content_frame.add{type = "table", column_count = 3}
-        inf_tbl.style.horizontal_spacing = 12
-        inf_tbl.style.vertical_spacing   = 2
-        -- Header row
-        local function hd(txt)
-            local l = inf_tbl.add{type = "label", caption = txt}
-            l.style.font = "default-bold"
-        end
-        hd("Technology"); hd("You"); hd(target_owner)
-        for _, d in ipairs(inf_diffs) do
-            inf_tbl.add{type = "label", caption = d.loc}
-            local vl = inf_tbl.add{type = "label", caption = "Lv " .. d.v_lvl}
-            local tl = inf_tbl.add{type = "label", caption = "Lv " .. d.t_lvl}
-            if d.v_lvl > d.t_lvl then
-                vl.style.font_color = {0.4, 1, 0.4}
-            else
-                tl.style.font_color = {0.4, 1, 0.4}
-            end
+            research_diff.add_tech_icons(grid, display_techs, info.clock_start)
         end
     end
 end
@@ -504,26 +281,9 @@ end
 -- ---------------------------------------------------------------------------
 
 local function build_frame(player, diff_target)
-    local screen = player.gui.screen
     storage.research_gui_location = storage.research_gui_location or {}
-
-    -- Reuse existing frame to preserve drag state
-    local frame = screen[FRAME_NAME]
-    if frame then
-        storage.research_gui_location[player.index] = frame.location
-        frame.clear()
-    else
-        frame = screen.add{
-            type      = "frame",
-            name      = FRAME_NAME,
-            direction = "vertical",
-        }
-        if storage.research_gui_location[player.index] then
-            frame.location = storage.research_gui_location[player.index]
-        else
-            frame.location = {x = 300, y = 100}
-        end
-    end
+    local frame = helpers.reuse_or_create_frame(
+        player, FRAME_NAME, storage.research_gui_location, {x = 300, y = 100})
 
     frame.style.width  = FRAME_W
     frame.style.height = FRAME_H
@@ -531,20 +291,8 @@ local function build_frame(player, diff_target)
     -- Persist diff target for Escape handling
     set_diff_target(player.index, diff_target)
 
-    -- Title bar
-    local title_bar = frame.add{type = "flow", direction = "horizontal"}
-    title_bar.style.vertical_align = "center"
-    title_bar.drag_target = frame
-
-    title_bar.add{type = "label",
-        caption = diff_target and ("Research: You vs " .. diff_target) or "Research",
-        style   = "frame_title",
-    }
-    local title_spacer = title_bar.add{type = "empty-widget", style = "draggable_space_header"}
-    title_spacer.style.horizontally_stretchable = true
-    title_spacer.style.height = 24
-    title_spacer.drag_target = frame
-
+    local caption = diff_target and ("Research: You vs " .. diff_target) or "Research"
+    local title_bar = helpers.add_title_bar(frame, caption)
     title_bar.add{
         type    = "sprite-button",
         name    = "sb_research_close",
@@ -568,7 +316,7 @@ local function build_frame(player, diff_target)
     local viewer_clock = (storage.player_clock_start or {})[player.index]
 
     if diff_target then
-        draw_diff(scroll, viewer_force, viewer_clock, diff_target)
+        research_diff.draw(scroll, viewer_force, viewer_clock, diff_target, COLLAPSED_COLS)
     else
         draw_overview(scroll, viewer_force, viewer_clock, player.index)
     end
@@ -581,7 +329,7 @@ end
 -- Toggle
 -- ---------------------------------------------------------------------------
 
-function M.toggle(player)
+function research_gui.toggle(player)
     if player.gui.screen[FRAME_NAME] then
         storage.research_gui_location = storage.research_gui_location or {}
         storage.research_gui_location[player.index] = player.gui.screen[FRAME_NAME].location
@@ -595,14 +343,14 @@ end
 -- Click handler
 -- ---------------------------------------------------------------------------
 
-function M.on_gui_click(event)
+function research_gui.on_gui_click(event)
     local el = event.element
     if not (el and el.valid) then return false end
 
     -- Close button
     if el.name == "sb_research_close" then
         local player = event.player or game.get_player(event.player_index)
-        if player then M.toggle(player) end
+        if player then research_gui.toggle(player) end
         return true
     end
 
@@ -652,7 +400,7 @@ end
 --- If any player section is expanded: collapse all.
 --- Otherwise: close the frame.
 --- Returns true if the event was consumed.
-function M.on_gui_closed(event)
+function research_gui.on_gui_closed(event)
     local player = game.get_player(event.player_index)
     if not player then return false end
     local frame = player.gui.screen[FRAME_NAME]
@@ -693,7 +441,7 @@ end
 -- Refresh for open panels
 -- ---------------------------------------------------------------------------
 
-function M.update_all()
+function research_gui.update_all()
     for _, player in pairs(game.players) do
         if player.connected and player.gui.screen[FRAME_NAME] then
             local diff_target = get_diff_target(player.index)
@@ -706,15 +454,15 @@ end
 -- Nav bar registration
 -- ---------------------------------------------------------------------------
 
-function M.on_player_created(player)
+function research_gui.on_player_created(player)
     nav.add_top_button(player, {
         name    = NAV_BTN,
         sprite  = "item/lab",
         tooltip = "Research Comparison",
     })
     nav.on_click(NAV_BTN, function(e)
-        M.toggle(e.player)
+        research_gui.toggle(e.player)
     end)
 end
 
-return M
+return research_gui

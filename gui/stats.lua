@@ -8,13 +8,14 @@
 -- Per-player production statistics window.
 -- Categories are built from prototypes (overhaul-safe). Intermediates and
 -- the Custom category use curated/hardcoded lists overridable via
--- M.set_intermediates() / M.set_custom() for mod-compat code.
+-- stats_gui.set_intermediates() / stats_gui.set_custom() for mod-compat code.
 -- Every column header is a choose-elem-button; always MAX_COLS slots are
 -- shown so players can fill blank ones to add items.
 
-local nav = require("nav")
+local nav = require("gui.nav")
+local helpers = require("helpers")
 
-local M = {}
+local stats_gui = {}
 
 -- ---------------------------------------------------------------------------
 -- Constants
@@ -73,8 +74,8 @@ local DEFAULT_CUSTOM = {
 -- ---------------------------------------------------------------------------
 
 local proto_cache            = nil   -- auto-detected ores / plates / science
-local intermediates_override = nil   -- set by mod-compat via M.set_intermediates
-local custom_override        = nil   -- set by mod-compat via M.set_custom
+local intermediates_override = nil   -- set by mod-compat via stats_gui.set_intermediates
+local custom_override        = nil   -- set by mod-compat via stats_gui.set_custom
 
 -- ---------------------------------------------------------------------------
 -- Prototype-derived category discovery
@@ -136,7 +137,7 @@ local function build_proto_cache()
     return proto_cache
 end
 
-function M.invalidate_categories()
+function stats_gui.invalidate_categories()
     proto_cache = nil
     storage.stats_categories = nil   -- clean up any old storage key
 end
@@ -145,11 +146,11 @@ end
 -- Override API (call from mod-compat modules at startup)
 -- ---------------------------------------------------------------------------
 
-function M.set_intermediates(items)
+function stats_gui.set_intermediates(items)
     intermediates_override = items
 end
 
-function M.set_custom(items)
+function stats_gui.set_custom(items)
     custom_override = items
 end
 
@@ -184,7 +185,7 @@ end
 
 -- Returns a positional table [1..MAX_COLS] where nil means "empty slot".
 -- Respects any user override stored in storage.stats_category_items[cat].
-function M.get_category_item_names(cat)
+function stats_gui.get_category_item_names(cat)
     local override = storage.stats_category_items and storage.stats_category_items[cat]
     if override then
         local out = {}
@@ -253,8 +254,8 @@ end
 local function player_forces(leaving_index)
     local list = {}
     for name, force in pairs(game.forces) do
-        local pname = name:match("^player%-(.+)$")
-        if pname then
+        if name:find("^player%-") and name ~= "spectator" then
+            local pname = helpers.display_name(name)
             local online = false
             for _, fp in ipairs(force.players) do
                 if fp.connected and fp.index ~= leaving_index then
@@ -290,7 +291,7 @@ end
 -- GUI construction
 -- ---------------------------------------------------------------------------
 
-function M.build_stats_gui(player, leaving_index)
+function stats_gui.build_stats_gui(player, leaving_index)
     local screen = player.gui.screen
 
     -- Save current position before destroying so rebuilds don't re-centre
@@ -305,7 +306,7 @@ function M.build_stats_gui(player, leaving_index)
     end
 
     local state      = get_state(player)
-    local item_names = M.get_category_item_names(state.category)   -- [1..MAX_COLS], sparse
+    local item_names = stats_gui.get_category_item_names(state.category)   -- [1..MAX_COLS], sparse
     local pf         = player_forces(leaving_index)
 
     -- ── Outer frame ──────────────────────────────────────────────────────────
@@ -456,16 +457,16 @@ end
 -- Public API
 -- ---------------------------------------------------------------------------
 
-function M.toggle(player)
+function stats_gui.toggle(player)
     local screen = player.gui.screen
     if screen.sb_stats_frame then
         screen.sb_stats_frame.destroy()
     else
-        M.build_stats_gui(player)
+        stats_gui.build_stats_gui(player)
     end
 end
 
-function M.on_gui_click(event)
+function stats_gui.on_gui_click(event)
     local el = event.element
     if not el or not el.valid then return false end
     local name   = el.name
@@ -481,7 +482,7 @@ function M.on_gui_click(event)
     for _, cat in ipairs(CATEGORIES) do
         if name == "sb_stats_cat_" .. cat then
             get_state(player).category = cat
-            M.build_stats_gui(player)
+            stats_gui.build_stats_gui(player)
             return true
         end
     end
@@ -489,7 +490,7 @@ function M.on_gui_click(event)
     for _, tp in ipairs(TIME_PERIODS) do
         if name == "sb_stats_time_" .. tp.key then
             get_state(player).precision = tp.precision
-            M.build_stats_gui(player)
+            stats_gui.build_stats_gui(player)
             return true
         end
     end
@@ -500,7 +501,7 @@ end
 -- Handle item-chooser selections (on_gui_elem_changed).
 -- Setting a slot: persists the new item globally and rebuilds.
 -- Clearing a slot (elem_value = nil): clears that position in storage and rebuilds.
-function M.on_gui_elem_changed(event)
+function stats_gui.on_gui_elem_changed(event)
     local el = event.element
     if not el or not el.valid then return false end
     if not (el.tags and el.tags.sb_stats_col) then return false end
@@ -515,28 +516,28 @@ function M.on_gui_elem_changed(event)
     -- Lazily initialise the category's storage entry from current defaults
     if not storage.stats_category_items then storage.stats_category_items = {} end
     if not storage.stats_category_items[cat] then
-        local current = M.get_category_item_names(cat)
+        local current = stats_gui.get_category_item_names(cat)
         storage.stats_category_items[cat] = current
     end
 
     -- nil clears the slot; a name fills it
     storage.stats_category_items[cat][col_idx] = new_item
 
-    M.build_stats_gui(player)
+    stats_gui.build_stats_gui(player)
     return true
 end
 
 --- Register the nav bar button for this player.
 --- Idempotent — safe to call on reconnect.
-function M.on_player_created(player)
+function stats_gui.on_player_created(player)
     nav.add_top_button(player, {
         name    = "sb_stats_btn",
         sprite  = "item/production-science-pack",
         tooltip = "Production Stats",
     })
     nav.on_click("sb_stats_btn", function(e)
-        M.toggle(e.player)
+        stats_gui.toggle(e.player)
     end)
 end
 
-return M
+return stats_gui

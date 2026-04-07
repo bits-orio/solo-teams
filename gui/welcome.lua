@@ -17,9 +17,9 @@
 --   Registered as sprite "sb-qr-code" in data.lua.
 --   Discord icon: graphics/discord-icon.png → sprite "sb-discord".
 
-local nav = require("nav")
+local nav = require("gui.nav")
 
-local M = {}
+local welcome_gui = {}
 
 -- ---------------------------------------------------------------------------
 -- Constants
@@ -239,7 +239,7 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Esc / on_gui_closed handler (called from control.lua)
-function M.on_gui_closed(event)
+function welcome_gui.on_gui_closed(event)
     local player = game.get_player(event.player_index)
     if not player then return end
     local frame = player.gui.screen[FRAME_NAME]
@@ -249,7 +249,7 @@ function M.on_gui_closed(event)
 end
 
 --- Register the nav bar button and auto-open for brand-new players.
-function M.on_player_created(player)
+function welcome_gui.on_player_created(player)
     nav.add_top_button(player, {
         name    = NAV_BTN,
         sprite  = "virtual-signal/signal-info",
@@ -267,4 +267,4 @@ function M.on_player_created(player)
     end
 end
 
-return M
+return welcome_gui

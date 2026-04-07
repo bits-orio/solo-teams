@@ -10,7 +10,9 @@
 -- Call on_init() from on_init and on_player_created(player) from
 -- on_player_created, both guarded by is_active().
 
-local M = {}
+local helpers = require("helpers")
+
+local platformer = {}
 
 --- Starting items placed into each player's hub.
 --- Mirrors Platformer's own set_starting_items() so every solo platform
@@ -26,7 +28,7 @@ local STARTING_ITEMS = {
 }
 
 --- Returns true when the Platformer mod is loaded in the current game.
-function M.is_active()
+function platformer.is_active()
     return script.active_mods["platformer"] ~= nil
 end
 
@@ -35,7 +37,7 @@ end
 --- teleport the player onto it.
 ---
 --- Expected call site: on_player_created(), internal use.
-function M.setup_player_platform(player)
+function platformer.setup_player_platform(player)
     local platform_name = player.name .. "'s hub"
     local force = player.force
 
@@ -88,13 +90,13 @@ end
 
 --- Process any queued platform teleports.  Must be called from an on_tick
 --- handler so it runs after on_player_created has fully completed.
-function M.process_pending_teleports()
+function platformer.process_pending_teleports()
     if not storage.pending_platform_tp then return end
     if not next(storage.pending_platform_tp) then return end
     for player_index, surface in pairs(storage.pending_platform_tp) do
         local player = game.get_player(player_index)
         if player and player.valid and surface and surface.valid then
-            player.teleport({ x = 0, y = 0 }, surface)
+            player.teleport(helpers.ORIGIN, surface)
         end
     end
     storage.pending_platform_tp = {}
@@ -108,8 +110,8 @@ end
 --- Platformer's internal storage.platform reference stays valid for all
 --- future player-join events.  It is hidden from the GUI instead.
 --- Expected call site: on_player_created (guarded by is_active()).
-function M.on_player_created(player)
-    M.setup_player_platform(player)
+function platformer.on_player_created(player)
+    platformer.setup_player_platform(player)
 end
 
-return M
+return platformer

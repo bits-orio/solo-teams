@@ -12,17 +12,19 @@
 --
 -- storage.player_surfaces[player_index] = {name = surface_name, planet = "nauvis"}
 
-local M = {}
+local helpers = require("helpers")
+
+local vanilla = {}
 
 --- Returns true when vanilla surface compat should be used.
 --- Active whenever the Platformer mod is NOT loaded.
-function M.is_active()
+function vanilla.is_active()
     return script.active_mods["platformer"] == nil
 end
 
 --- Derive a human-readable display name for a player's surface record.
 --- planet "nauvis" → "base on Nauvis"; works for any planet name.
-function M.planet_display_name(planet)
+function vanilla.planet_display_name(planet)
     return planet:sub(1, 1):upper() .. planet:sub(2)
 end
 
@@ -33,7 +35,7 @@ end
 ---
 --- Teleport is deferred to the next tick via storage.pending_vanilla_tp so
 --- it is safe to call from on_player_created before the character is ready.
-function M.setup_player_surface(player)
+function vanilla.setup_player_surface(player)
     local planet    = "nauvis"
     local surf_name = player.force.name .. "-" .. planet
 
@@ -52,16 +54,16 @@ function M.setup_player_surface(player)
 end
 
 --- Process queued vanilla surface teleports. Must be called from on_tick.
-function M.process_pending_teleports()
+function vanilla.process_pending_teleports()
     if not storage.pending_vanilla_tp then return end
     if not next(storage.pending_vanilla_tp) then return end
     for player_index, surface in pairs(storage.pending_vanilla_tp) do
         local player = game.get_player(player_index)
         if player and player.valid and surface and surface.valid then
-            player.teleport({x = 0, y = 0}, surface)
+            player.teleport(helpers.ORIGIN, surface)
         end
     end
     storage.pending_vanilla_tp = {}
 end
 
-return M
+return vanilla
