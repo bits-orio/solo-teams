@@ -33,6 +33,20 @@ function surface_utils.get_owner(surface)
     return nil
 end
 
+--- Find a player's home surface: first space platform, then vanilla surface.
+--- Accepts a force object (the player's effective force).
+function surface_utils.get_home_surface(force, player_index)
+    for _, plat in pairs(force.platforms) do
+        if plat.surface and plat.surface.valid then return plat.surface end
+    end
+    local ps = storage.player_surfaces and storage.player_surfaces[player_index]
+    if ps then
+        local s = game.surfaces[ps.name]
+        if s and s.valid then return s end
+    end
+    return nil
+end
+
 --- Update surface visibility between two forces based on friendship.
 function surface_utils.update_visibility(force_a, force_b, are_friends)
     for _, surface in pairs(game.surfaces) do

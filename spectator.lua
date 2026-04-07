@@ -237,12 +237,22 @@ function spectator.enter(player, target_force, surface, position)
 end
 
 --- Stop spectating. Safe to call if not spectating (no-ops).
+--- Always teleports the player home to prevent stranding on foreign surfaces
+--- (especially in God mode where there's no character anchor).
 function spectator.exit(player)
     if not spectator.is_spectating(player) then return end
     log("[solo-teams:spectator] exit: " .. player.name)
 
     local target_fn = storage.spectating_target[player.index]
     restore_player_state(player)
+
+    -- Teleport home immediately — don't rely on bounce_if_foreign to catch this.
+    -- In God mode (Platformer), exiting remote view leaves the god controller on
+    -- the foreign surface since there's no character to return to.
+    local home = surface_utils.get_home_surface(player.force, player.index)
+    if home then
+        player.teleport(helpers.ORIGIN, home)
+    end
 
     if target_fn then
         local target_force = game.forces[target_fn]

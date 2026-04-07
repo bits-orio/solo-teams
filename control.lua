@@ -19,6 +19,7 @@ local welcome_gui   = require("gui.welcome")
 local research_gui  = require("gui.research")
 local platformer    = require("compat.platformer")
 local vanilla       = require("compat.vanilla")
+local friendship    = require("gui.friendship")
 
 -- ─── Helpers ───────────────────────────────────────────────────────────
 
@@ -325,6 +326,13 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(event)
         end
         if changed_flag == "buddy_join_enabled" then
             landing_pen.update_pen_gui_all()
+        end
+        if changed_flag == "friendship_enabled" and not admin_gui.flag("friendship_enabled") then
+            friendship.break_all()
+            platforms_gui.update_all()
+        end
+        if changed_flag == "friendship_enabled" and admin_gui.flag("friendship_enabled") then
+            platforms_gui.update_all()
         end
         if changed_flag == "landing_pen_enabled" and not admin_gui.flag("landing_pen_enabled") then
             for _, player in pairs(game.players) do

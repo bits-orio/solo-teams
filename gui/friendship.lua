@@ -124,4 +124,32 @@ function friendship.on_toggle(event)
     return true
 end
 
+--- Break all existing friendships and clear all intents.
+--- Called when the friendship admin flag is disabled mid-session.
+function friendship.break_all()
+    storage.friend_intents = storage.friend_intents or {}
+    local broken = {}
+    for _, force_a in pairs(game.forces) do
+        if force_a.name:find("^player%-") then
+            for _, force_b in pairs(game.forces) do
+                if force_b.name:find("^player%-") and force_a.index < force_b.index then
+                    if force_a.get_friend(force_b) or force_b.get_friend(force_a) then
+                        force_a.set_friend(force_b, false)
+                        force_b.set_friend(force_a, false)
+                        spectator.on_friend_changed(force_a, force_b, false)
+                        spectator.on_friend_changed(force_b, force_a, false)
+                        surface_utils.update_visibility(force_a, force_b, false)
+                        broken[#broken + 1] = helpers.display_name(force_a.name)
+                            .. " & " .. helpers.display_name(force_b.name)
+                    end
+                end
+            end
+        end
+    end
+    storage.friend_intents = {}
+    if #broken > 0 then
+        helpers.broadcast("[Admin] All friendships have been dissolved.")
+    end
+end
+
 return friendship

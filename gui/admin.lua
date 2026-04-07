@@ -29,6 +29,11 @@ local FLAGS = {
         tooltip = "When enabled, players in the Landing Pen can request to join another player's force.",
     },
     {
+        key     = "friendship_enabled",
+        label   = "Allow Friendship",
+        tooltip = "When enabled, players can send friend requests. Disabling breaks all existing friendships.",
+    },
+    {
         key     = "spectate_notifications_enabled",
         label   = "Spectate Notifications",
         tooltip = "When enabled, all players are notified when someone starts or stops spectating.",
@@ -39,6 +44,7 @@ local FLAGS = {
 local FLAG_DEFAULTS = {
     landing_pen_enabled             = true,
     buddy_join_enabled              = false,
+    friendship_enabled              = true,
     spectate_notifications_enabled  = false,
 }
 

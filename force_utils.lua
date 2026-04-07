@@ -5,8 +5,9 @@
 -- Force creation, tech/quality syncing, surface ownership checks, and
 -- bounce-home logic. Extracted from control.lua for size reduction.
 
-local helpers   = require("helpers")
-local spectator = require("spectator")
+local helpers       = require("helpers")
+local spectator     = require("spectator")
+local surface_utils = require("surface_utils")
 
 local force_utils = {}
 
@@ -61,14 +62,25 @@ function force_utils.sync_quality_all_forces()
     end
 end
 
+--- Get the player's real force (accounts for spectator mode).
+local function effective_force(player)
+    local real_fn = spectator.get_effective_force(player)
+    return game.forces[real_fn]
+end
+
 --- Check whether the player is on another player's private surface.
+--- Uses effective force (real force when spectating).
 function force_utils.on_foreign_surface(player)
     local surface = player.surface
     if not surface then return false end
+    local my_force = effective_force(player)
+    if not my_force then return false end
+    local my_force_name = my_force.name
     local owner_force = surface.name:match("^(player%-.+)%-%w+$")
-    if owner_force and owner_force ~= player.force.name then return true end
+    if owner_force and owner_force ~= my_force_name then return true end
     for _, force in pairs(game.forces) do
-        if force ~= player.force and force.name ~= "enemy" and force.name ~= "neutral" then
+        if force ~= my_force and force.name ~= "enemy" and force.name ~= "neutral"
+           and force.name ~= "spectator" then
             for _, plat in pairs(force.platforms) do
                 if plat.surface and plat.surface.valid
                    and plat.surface.index == surface.index then
@@ -80,17 +92,11 @@ function force_utils.on_foreign_surface(player)
     return false
 end
 
---- Find the player's home surface: first space platform, then vanilla surface.
+--- Find the player's home surface (uses effective force for spectator compat).
 function force_utils.get_home_surface(player)
-    for _, plat in pairs(player.force.platforms) do
-        if plat.surface and plat.surface.valid then return plat.surface end
-    end
-    local ps = storage.player_surfaces and storage.player_surfaces[player.index]
-    if ps then
-        local s = game.surfaces[ps.name]
-        if s and s.valid then return s end
-    end
-    return nil
+    local force = effective_force(player)
+    if not force then return nil end
+    return surface_utils.get_home_surface(force, player.index)
 end
 
 --- Bounce a player back to their home surface if they're on a foreign one.

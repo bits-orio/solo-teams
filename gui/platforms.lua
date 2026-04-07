@@ -11,6 +11,7 @@ local spectator     = require("spectator")
 local helpers       = require("helpers")
 local surface_utils = require("surface_utils")
 local friendship    = require("gui.friendship")
+local admin_gui     = require("gui.admin")
 
 local platforms_gui = {}
 
@@ -145,8 +146,10 @@ local function add_owner_label(tbl, owner, info)
 end
 
 --- Add the friend checkbox (col 2) to the table.
+--- Hidden entirely when friendship is disabled via admin flag.
 local function add_friend_checkbox(tbl, viewer_force_name, viewer_force, target_force_name, owner)
-    if target_force_name == viewer_force_name then
+    if target_force_name == viewer_force_name
+       or not admin_gui.flag("friendship_enabled") then
         tbl.add{type = "label", caption = ""}
         return
     end
@@ -199,15 +202,9 @@ local function add_platform_rows(tbl, platforms, target_force_name, owner, is_ow
     end
 end
 
---- Find the player's home surface (first platform or vanilla surface).
+--- Find the player's home surface (delegates to surface_utils).
 local function get_home_surface(force, player_index)
-    for _, plat in pairs(force.platforms) do
-        if plat.surface and plat.surface.valid then return plat.surface end
-    end
-    local ps = storage.player_surfaces and storage.player_surfaces[player_index]
-    local vs = ps and game.surfaces[ps.name]
-    if vs and vs.valid then return vs end
-    return nil
+    return surface_utils.get_home_surface(force, player_index)
 end
 
 --- Add the footer with return/stop-spectating button.
@@ -367,7 +364,9 @@ end
 -- ─── Friend Toggle ─────────────────────────────────────────────────────
 
 --- Handle friend checkbox toggle (delegates to gui.friendship).
+--- No-ops when friendship is disabled via admin flag.
 function platforms_gui.on_friend_toggle(event)
+    if not admin_gui.flag("friendship_enabled") then return end
     if friendship.on_toggle(event) then
         platforms_gui.update_all()
     end
