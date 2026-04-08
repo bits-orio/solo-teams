@@ -287,6 +287,9 @@ script.on_event(defines.events.on_gui_click, function(event)
     if el.name == "sb_spawn_btn" then
         local player = game.get_player(event.player_index)
         if player and landing_pen.is_in_pen(player) then
+            if spectator.is_spectating(player) then
+                spectator.exit(player)
+            end
             landing_pen.finish_spawn(player)
             spawn_into_world(player)
             force_utils.start_player_clock(player)

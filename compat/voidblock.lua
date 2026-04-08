@@ -15,7 +15,7 @@
 -- Surface naming & storage follow the same conventions as vanilla compat:
 --   storage.player_surfaces[player_index] = {name = surface_name, planet = "nauvis"}
 
-local helpers = require("helpers")
+local compat_utils = require("compat.compat_utils")
 
 local voidblock = {}
 
@@ -33,10 +33,8 @@ function voidblock.is_active()
        and script.active_mods["platformer"] == nil
 end
 
---- Derive a human-readable display name for a player's surface record.
-function voidblock.planet_display_name(planet)
-    return planet:sub(1, 1):upper() .. planet:sub(2)
-end
+voidblock.planet_display_name    = compat_utils.planet_display_name
+voidblock.process_pending_teleports = compat_utils.process_pending_teleports
 
 --- Create a personal Nauvis surface for `player` with no auto-generated
 --- terrain. All tiles are placed by on_chunk_generated (void ocean + island)
@@ -44,12 +42,8 @@ end
 ---
 --- Teleport is deferred to the next tick via storage.pending_vanilla_tp.
 function voidblock.setup_player_surface(player)
-    local planet    = "nauvis"
-    local surf_name = player.force.name .. "-" .. planet
-
-    local surface = game.surfaces[surf_name]
-    if not surface then
-        surface = game.create_surface(surf_name, {
+    compat_utils.setup_player_surface(player, function(surf_name)
+        local surface = game.create_surface(surf_name, {
             default_enable_all_autoplace_controls = false,
             autoplace_settings = {
                 entity     = { treat_missing_as_default = false, settings = {} },
@@ -61,26 +55,8 @@ function voidblock.setup_player_surface(player)
         -- void-island terrain before the player arrives (next tick).
         surface.request_to_generate_chunks({0, 0}, 3)
         surface.force_generate_chunk_requests()
-    end
-
-    storage.player_surfaces = storage.player_surfaces or {}
-    storage.player_surfaces[player.index] = {name = surf_name, planet = planet}
-
-    storage.pending_vanilla_tp = storage.pending_vanilla_tp or {}
-    storage.pending_vanilla_tp[player.index] = surface
-end
-
---- Process queued teleports. Must be called from on_tick.
-function voidblock.process_pending_teleports()
-    if not storage.pending_vanilla_tp then return end
-    if not next(storage.pending_vanilla_tp) then return end
-    for player_index, surface in pairs(storage.pending_vanilla_tp) do
-        local player = game.get_player(player_index)
-        if player and player.valid and surface and surface.valid then
-            player.teleport(helpers.ORIGIN, surface)
-        end
-    end
-    storage.pending_vanilla_tp = {}
+        return surface
+    end)
 end
 
 --- Get the VoidBlock planet config for a per-player surface, or nil.

@@ -12,7 +12,7 @@
 --
 -- storage.player_surfaces[player_index] = {name = surface_name, planet = "nauvis"}
 
-local helpers = require("helpers")
+local compat_utils = require("compat.compat_utils")
 
 local vanilla = {}
 
@@ -22,11 +22,8 @@ function vanilla.is_active()
     return script.active_mods["platformer"] == nil
 end
 
---- Derive a human-readable display name for a player's surface record.
---- planet "nauvis" → "base on Nauvis"; works for any planet name.
-function vanilla.planet_display_name(planet)
-    return planet:sub(1, 1):upper() .. planet:sub(2)
-end
+vanilla.planet_display_name    = compat_utils.planet_display_name
+vanilla.process_pending_teleports = compat_utils.process_pending_teleports
 
 --- Create a personal Nauvis surface for `player` using the same map-gen
 --- settings as the shared "nauvis" surface (same seed, fresh world state).
@@ -36,34 +33,11 @@ end
 --- Teleport is deferred to the next tick via storage.pending_vanilla_tp so
 --- it is safe to call from on_player_created before the character is ready.
 function vanilla.setup_player_surface(player)
-    local planet    = "nauvis"
-    local surf_name = player.force.name .. "-" .. planet
-
-    local surface = game.surfaces[surf_name]
-    if not surface then
+    compat_utils.setup_player_surface(player, function(surf_name, planet)
         local nauvis = game.surfaces[planet]
         local mgs    = nauvis and nauvis.map_gen_settings or {}
-        surface      = game.create_surface(surf_name, mgs)
-    end
-
-    storage.player_surfaces = storage.player_surfaces or {}
-    storage.player_surfaces[player.index] = {name = surf_name, planet = planet}
-
-    storage.pending_vanilla_tp = storage.pending_vanilla_tp or {}
-    storage.pending_vanilla_tp[player.index] = surface
-end
-
---- Process queued vanilla surface teleports. Must be called from on_tick.
-function vanilla.process_pending_teleports()
-    if not storage.pending_vanilla_tp then return end
-    if not next(storage.pending_vanilla_tp) then return end
-    for player_index, surface in pairs(storage.pending_vanilla_tp) do
-        local player = game.get_player(player_index)
-        if player and player.valid and surface and surface.valid then
-            player.teleport(helpers.ORIGIN, surface)
-        end
-    end
-    storage.pending_vanilla_tp = {}
+        return game.create_surface(surf_name, mgs)
+    end)
 end
 
 return vanilla
