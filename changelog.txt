@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.17
+Date: 2026-04-08
+  Features:
+    - Players in the Landing Pen are now assigned the spectator permission group, preventing building or griefing in the pen area
+  Changes:
+    - Update README: remove Space Block references, add Platformer and VoidBlock links, remove installation section, fix command references
+    - Update info.json description
+
+---------------------------------------------------------------------------------------------------
 Version: 0.2.16
 Date: 2026-04-08
   Features:

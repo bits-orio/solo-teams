@@ -3,7 +3,7 @@
 -- License: MIT
 --
 -- Registers console commands:
---   /platforms  - list all players and their platforms with GPS pings
+--   /st-players  - list all players and their surfaces with GPS pings
 
 local surfaces_gui = require("gui.surfaces")
 local helpers       = require("helpers")

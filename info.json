@@ -1,9 +1,9 @@
 {
   "name": "solo-teams",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "title": "Solo Teams",
   "author": "bits-orio",
-  "description": "Gives each player their own force/team with independent research, production statistics, and a platforms GUI. Includes cross-force chat, a /platforms command, and per-player friend toggles.",
+  "description": "Solo by design. Legendary by choice. Each player gets their own force with independent research and their own copy of the map. Race your friends, compare stats, toggle friendships, and optionally buddy up — all from one server.",
   "homepage": "https://github.com/bits-orio/solo-teams",
   "factorio_version": "2.0",
   "dependencies": [

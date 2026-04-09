@@ -73,6 +73,8 @@ function landing_pen.place_player(player)
     end
 
     if player.surface == surface then
+        local spec_group = game.permissions.get_group("spectator")
+        if spec_group then spec_group.add_player(player) end
         landing_pen.build_pen_gui(player)
         landing_pen.update_pen_gui_all()
     else
@@ -100,6 +102,8 @@ function landing_pen.process_pending_teleports()
                 if solo_force and player.force ~= solo_force then
                     player.force = solo_force
                 end
+                local spec_group = game.permissions.get_group("spectator")
+                if spec_group then spec_group.add_player(player) end
                 done[#done + 1] = player_index
             end
         else
@@ -298,6 +302,8 @@ function landing_pen.accept_buddy_request(target, requester_index)
     if not (requester and requester.valid) then return end
 
     requester.force = target.force
+    local default_group = game.permissions.get_group("Default")
+    if default_group then default_group.add_player(requester) end
     landing_pen.finish_spawn(requester)
     local spawn_pos = target.surface.find_non_colliding_position(
         "character", target.position, 10, 1

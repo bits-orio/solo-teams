@@ -290,6 +290,8 @@ script.on_event(defines.events.on_gui_click, function(event)
             if spectator.is_spectating(player) then
                 spectator.exit(player)
             end
+            local default_group = game.permissions.get_group("Default")
+            if default_group then default_group.add_player(player) end
             landing_pen.finish_spawn(player)
             spawn_into_world(player)
             force_utils.start_player_clock(player)
@@ -380,6 +382,8 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(event)
         if changed_flag == "landing_pen_enabled" and not admin_gui.flag("landing_pen_enabled") then
             for _, player in pairs(game.players) do
                 if landing_pen.is_in_pen(player) then
+                    local default_group = game.permissions.get_group("Default")
+                    if default_group then default_group.add_player(player) end
                     landing_pen.finish_spawn(player)
                     spawn_into_world(player)
                     force_utils.start_player_clock(player)
