@@ -162,6 +162,9 @@ function spectator.init()
         end
     end
 
+    spec.technologies["toolbelt"].researched          = true
+    spec.technologies["logistic-robotics"].researched = true
+
     setup_permission_group()
     log("[solo-teams:spectator] init: complete, permission group configured")
 end
