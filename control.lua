@@ -131,6 +131,8 @@ script.on_init(function()
     storage.pending_admin_check      = {}
     storage.admin_gui_collapsed      = {}
     storage.admin_gui_location       = {}
+    storage.team_leader              = {}
+    storage.left_teams               = {}
     storage.player_clock_start       = {}
     storage.tech_research_ticks      = {}
     storage.research_gui_location    = {}
@@ -145,29 +147,10 @@ script.on_init(function()
 end)
 
 script.on_load(function()
-    storage.gui_collapsed            = storage.gui_collapsed            or {}
-    storage.gui_location             = storage.gui_location             or {}
-    storage.stats_gui_state          = storage.stats_gui_state          or {}
-    storage.stats_gui_location       = storage.stats_gui_location       or {}
-    storage.stats_category_items     = storage.stats_category_items     or {}
-    storage.spawned_players          = storage.spawned_players          or {}
-    storage.pen_slots                = storage.pen_slots                or {}
-    storage.pen_gui_location         = storage.pen_gui_location         or {}
-    storage.pending_pen_tp           = storage.pending_pen_tp           or {}
-    storage.buddy_requests           = storage.buddy_requests           or {}
-    storage.player_surfaces          = storage.player_surfaces          or {}
-    storage.pending_vanilla_tp       = storage.pending_vanilla_tp       or {}
-    storage.admin_flags              = storage.admin_flags              or {}
-    storage.pending_admin_check      = storage.pending_admin_check      or {}
-    storage.admin_gui_collapsed      = storage.admin_gui_collapsed      or {}
-    storage.admin_gui_location       = storage.admin_gui_location       or {}
-    storage.player_clock_start       = storage.player_clock_start       or {}
-    storage.tech_research_ticks      = storage.tech_research_ticks      or {}
-    storage.research_gui_location    = storage.research_gui_location    or {}
-    storage.research_gui_expanded    = storage.research_gui_expanded    or {}
-    storage.research_gui_diff_target = storage.research_gui_diff_target or {}
-    storage.show_offline_players     = storage.show_offline_players     or {}
-    spectator.init_storage()
+    -- on_load must NOT write to storage — doing so causes multiplayer desyncs
+    -- because the server doesn't run on_load when a client joins.
+    -- Individual functions already guard with "storage.xxx = storage.xxx or {}"
+    -- at the point of use, so no initialization is needed here.
     commands_mod.register()
     init_events()
 end)
@@ -181,6 +164,8 @@ script.on_configuration_changed(function()
     storage.research_gui_expanded    = storage.research_gui_expanded    or {}
     storage.research_gui_diff_target = storage.research_gui_diff_target or {}
     storage.show_offline_players     = storage.show_offline_players     or {}
+    storage.team_leader              = storage.team_leader              or {}
+    storage.left_teams               = storage.left_teams               or {}
     for _, player in pairs(game.players) do
         if not storage.spawned_players[player.index] then
             storage.spawned_players[player.index] = true
@@ -198,6 +183,7 @@ script.on_event(defines.events.on_player_created, function(event)
     local player = game.get_player(event.player_index)
     force_utils.create_player_force(player)
     register_nav_buttons(player)
+    admin_gui.auto_populate_starter_items(player)
 
     if admin_gui.flag("landing_pen_enabled") then
         landing_pen.place_player(player)
@@ -292,9 +278,13 @@ script.on_event(defines.events.on_gui_click, function(event)
             end
             local default_group = game.permissions.get_group("Default")
             if default_group then default_group.add_player(player) end
+            admin_gui.auto_populate_starter_items(player)
+            landing_pen.grant_starter_items(player)
             landing_pen.finish_spawn(player)
             spawn_into_world(player)
             force_utils.start_player_clock(player)
+            helpers.broadcast(helpers.colored_name(player.name, player.chat_color)
+                .. " has started their team." .. helpers.force_tag(player.force.name))
             refresh_all_gameplay_guis()
         end
         return
@@ -334,6 +324,18 @@ script.on_event(defines.events.on_gui_click, function(event)
     surfaces_gui.on_gui_click(event)
 end)
 
+script.on_event(defines.events.on_gui_selection_state_changed, function(event)
+    if admin_gui.on_gui_selection_state_changed(event) then
+        local admin_player = game.get_player(event.player_index)
+        if admin_player then
+            local limit = admin_gui.buddy_team_limit()
+            helpers.broadcast("[Admin] " .. helpers.colored_name(admin_player.name, admin_player.chat_color) .. " set max team size to " .. limit)
+        end
+        landing_pen.update_pen_gui_all()
+        return
+    end
+end)
+
 script.on_event(defines.events.on_gui_elem_changed, function(event)
     stats_gui.on_gui_elem_changed(event)
 end)
@@ -367,10 +369,16 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(event)
         if admin_player then
             local state_str = admin_gui.flag(changed_flag) and "enabled" or "disabled"
             local label = admin_gui.get_flag_label(changed_flag)
-            helpers.broadcast("[Admin] " .. admin_player.name .. " " .. state_str .. " " .. label)
+            helpers.broadcast("[Admin] " .. helpers.colored_name(admin_player.name, admin_player.chat_color) .. " " .. state_str .. " " .. label)
         end
         if changed_flag == "buddy_join_enabled" then
             landing_pen.update_pen_gui_all()
+            -- Rebuild admin GUI to show/hide team limit dropdown
+            for _, p in pairs(game.players) do
+                if p.connected and p.admin and p.gui.screen.sb_admin_frame then
+                    admin_gui.build_admin_gui(p)
+                end
+            end
         end
         if changed_flag == "friendship_enabled" and not admin_gui.flag("friendship_enabled") then
             friendship.break_all()

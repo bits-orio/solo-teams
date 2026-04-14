@@ -6,7 +6,7 @@
 -- spawns on their own fresh copy of the Nauvis surface generated from the
 -- same seed as the shared Nauvis, giving everyone an identical starting world.
 --
--- Surface naming: "<force_name>-<planet>" e.g. "player-bob-nauvis"
+-- Surface naming: "<force_name>-<planet>" e.g. "force-bob-nauvis"
 -- Using force name (not player name/index) so the surface is identifiable
 -- by its owning force, which supports multi-player teams in the future.
 --

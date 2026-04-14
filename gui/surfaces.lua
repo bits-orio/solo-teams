@@ -14,6 +14,7 @@ local friendship    = require("gui.friendship")
 local admin_gui     = require("gui.admin")
 local landing_pen   = require("gui.landing_pen")
 
+
 local surfaces_gui = {}
 
 -- ─── GPS Helpers ───────────────────────────────────────────────────────
@@ -63,10 +64,20 @@ local function collect_platform_owner(force)
 end
 
 --- Build a single owner entry for a vanilla surface player.
+--- Uses the owning force's display name (team leader) rather than the
+--- player who originally spawned the surface.
 local function collect_vanilla_owner(player, ps)
     local surface = game.surfaces[ps.name]
     if not (surface and surface.valid) then return nil end
-    local owner = player.name
+
+    -- Surface name format: "{force_name}-{planet}" → extract the owning force.
+    local owning_force_name = ps.name:sub(1, -(#ps.planet + 2))
+    local owner = helpers.display_name(owning_force_name)
+
+    -- Use the current team leader for display info (color, online, gps).
+    local owner_player = game.get_player(owner) or player
+    local online = owner_player and owner_player.connected or false
+
     local planet_disp = ps.planet:sub(1, 1):upper() .. ps.planet:sub(2)
     local platforms = {{
         name         = owner .. "'s base on " .. planet_disp,
@@ -76,10 +87,10 @@ local function collect_vanilla_owner(player, ps)
         position     = helpers.ORIGIN,
     }}
     local info = {
-        gps        = get_player_gps(player),
-        color      = player.chat_color,
-        force_name = spectator.get_effective_force(player),
-        online     = player.connected,
+        gps        = online and get_player_gps(owner_player) or "",
+        color      = online and owner_player.chat_color or helpers.WHITE,
+        force_name = owning_force_name,
+        online     = online,
     }
     return owner, platforms, info
 end
@@ -107,16 +118,20 @@ function surfaces_gui.get_platforms_by_owner()
         end
     end
 
-    -- Vanilla surfaces (only if no platform entry exists for this player)
+    -- Vanilla surfaces (only if no platform entry already exists for this force)
     local player_surfaces = storage.player_surfaces or {}
     for _, p in pairs(game.players) do
         local ps = player_surfaces[p.index]
-        if ps and not owners[p.name] then
-            local owner, platforms, info = collect_vanilla_owner(p, ps)
-            if owner then
-                owners[owner]     = platforms
-                owner_info[owner] = info
-                order[#order + 1] = owner
+        if ps then
+            local owning_force_name = ps.name:sub(1, -(#ps.planet + 2))
+            local display = helpers.display_name(owning_force_name)
+            if not owners[display] then
+                local owner, platforms, info = collect_vanilla_owner(p, ps)
+                if owner then
+                    owners[owner]     = platforms
+                    owner_info[owner] = info
+                    order[#order + 1] = owner
+                end
             end
         end
     end
@@ -143,6 +158,11 @@ local function add_owner_label(tbl, owner, info)
         local off_lbl = owner_flow.add{type = "label", caption = " (offline)"}
         off_lbl.style.font       = "default-small"
         off_lbl.style.font_color = {0.45, 0.45, 0.45}
+    end
+    if info.force_name then
+        local force_lbl = owner_flow.add{type = "label", caption = " [" .. info.force_name .. "]"}
+        force_lbl.style.font       = "default-small"
+        force_lbl.style.font_color = {0.5, 0.5, 0.5}
     end
 end
 
@@ -212,6 +232,7 @@ end
 --- Add the footer with return/stop-spectating button.
 local function add_footer(frame, player, viewer_force)
     if not viewer_force then return end
+    if landing_pen.is_in_pen(player) then return end
     local return_surface = get_home_surface(viewer_force, player.index)
     if not return_surface then return end
     if player.surface.index == return_surface.index then return end

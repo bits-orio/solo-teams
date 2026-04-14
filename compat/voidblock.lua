@@ -9,7 +9,7 @@
 --
 -- VoidBlock's own chunk generator only processes surfaces whose name matches
 -- a planet name exactly (e.g. "nauvis"). Per-player surfaces are named
--- "<force_name>-<planet>" (e.g. "player-bob-nauvis"), so this module
+-- "<force_name>-<planet>" (e.g. "force-bob-nauvis"), so this module
 -- replicates VoidBlock's terrain generation for those surfaces.
 --
 -- Surface naming & storage follow the same conventions as vanilla compat:
@@ -18,6 +18,15 @@
 local compat_utils = require("compat.compat_utils")
 
 local voidblock = {}
+
+--- Character starting items for VoidBlock mode.
+--- Edit this list to match VoidBlock's intended starting loadout.
+voidblock.CHARACTER_STARTING_ITEMS = {
+    {name = "iron-plate",          count = 8},
+    {name = "wood",                count = 1},
+    {name = "stone-furnace",       count = 1},
+    {name = "burner-mining-drill", count = 1},
+}
 
 -- VoidBlock planet configuration for terrain generation.
 -- Mirrored from VoidBlock's control.lua VOIDBLOCK.planets table.
@@ -67,7 +76,7 @@ local function get_planet_config(surface_name)
         local suffix = "-" .. planet
         if surface_name:sub(-#suffix) == suffix then
             local prefix = surface_name:sub(1, -(#suffix + 1))
-            if prefix:find("^player%-") and game.forces[prefix] then
+            if prefix:find("^force%-") and game.forces[prefix] then
                 return config
             end
         end

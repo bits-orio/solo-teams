@@ -14,7 +14,7 @@ function surface_utils.get_owner(surface)
 
     -- Space platforms
     for _, force in pairs(game.forces) do
-        if force.name:find("^player%-") then
+        if force.name:find("^force%-") then
             for _, plat in pairs(force.platforms) do
                 if plat.surface and plat.surface.valid
                    and plat.surface.index == surface.index then
@@ -24,8 +24,8 @@ function surface_utils.get_owner(surface)
         end
     end
 
-    -- Vanilla per-player surfaces: "<force_name>-<planet>" e.g. "player-bob-nauvis"
-    local force_name = surface.name:match("^(player%-.+)%-%w+$")
+    -- Vanilla per-player surfaces: "<force_name>-<planet>" e.g. "force-bob-nauvis"
+    local force_name = surface.name:match("^(force%-.+)%-%w+$")
     if force_name and game.forces[force_name] then
         return force_name
     end
@@ -67,7 +67,7 @@ function surface_utils.on_surface_created(surface)
     if not owner_force then return end
 
     for _, force in pairs(game.forces) do
-        if force.name:find("^player%-") and force.name ~= owner_fn then
+        if force.name:find("^force%-") and force.name ~= owner_fn then
             local are_friends = force.get_friend(owner_force)
                 and owner_force.get_friend(force)
             force.set_surface_hidden(surface, not are_friends)

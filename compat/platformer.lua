@@ -14,6 +14,13 @@ local helpers = require("helpers")
 
 local platformer = {}
 
+--- Character starting items for Platformer mode.
+--- Edit this list to match Platformer's intended character loadout.
+--- Hub items are handled separately (see STARTING_ITEMS below).
+platformer.CHARACTER_STARTING_ITEMS = {
+    {name = "iron-plate", count = 8},
+}
+
 --- Starting items placed into each player's hub.
 --- Mirrors Platformer's own set_starting_items() so every personal platform
 --- begins with the same loadout.

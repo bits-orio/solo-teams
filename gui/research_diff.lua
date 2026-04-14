@@ -74,7 +74,7 @@ end
 --- @param collapsed_cols number         number of icon columns per row
 function research_diff.draw(content_frame, viewer_force, viewer_clock, target_owner, collapsed_cols)
     -- Resolve target force
-    local target_force_name = "player-" .. target_owner
+    local target_force_name = "force-" .. target_owner
     local target_force = game.forces[target_force_name]
     if not target_force then
         content_frame.add{type = "label", caption = "Player '" .. target_owner .. "' not found."}

@@ -130,9 +130,9 @@ function friendship.break_all()
     storage.friend_intents = storage.friend_intents or {}
     local broken = {}
     for _, force_a in pairs(game.forces) do
-        if force_a.name:find("^player%-") then
+        if force_a.name:find("^force%-") then
             for _, force_b in pairs(game.forces) do
-                if force_b.name:find("^player%-") and force_a.index < force_b.index then
+                if force_b.name:find("^force%-") and force_a.index < force_b.index then
                     if force_a.get_friend(force_b) or force_b.get_friend(force_a) then
                         force_a.set_friend(force_b, false)
                         force_b.set_friend(force_a, false)

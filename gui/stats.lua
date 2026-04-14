@@ -254,7 +254,7 @@ end
 local function player_forces(leaving_index)
     local list = {}
     for name, force in pairs(game.forces) do
-        if name:find("^player%-") and name ~= "spectator" then
+        if name:find("^force%-") and name ~= "spectator" then
             local pname = helpers.display_name(name)
             -- Skip players who haven't spawned yet (still in landing pen)
             local player_obj = game.get_player(pname)

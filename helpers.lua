@@ -15,18 +15,33 @@ helpers.ORIGIN = {x = 0, y = 0}
 
 -- ─── Force Helpers ─────────────────────────────────────────────────────
 
---- Strip the "player-" prefix from a force name to get the display name.
---- Returns the name unchanged if it doesn't match the pattern.
----   "player-bob" → "bob"
----   "enemy"      → "enemy"
+--- Get the display name for a force. Uses the team leader's name when
+--- available, falling back to stripping the "force-" prefix.
+---   "force-bob" → "bob"  (or the current team leader's name)
+---   "enemy"     → "enemy"
 function helpers.display_name(force_name)
-    return force_name:match("^player%-(.+)$") or force_name
+    if storage and storage.team_leader then
+        local leader_index = storage.team_leader[force_name]
+        if leader_index then
+            local leader = game.get_player(leader_index)
+            if leader and leader.valid and leader.force.name == force_name then
+                return leader.name
+            end
+        end
+    end
+    return force_name:match("^force%-(.+)$") or force_name
 end
 
 --- Return the first connected player's chat_color for a force, or white.
 function helpers.force_color(force)
     local first = force.connected_players[1]
     return first and first.chat_color or helpers.WHITE
+end
+
+--- Build a grey force-name tag for chat messages.
+---   " [color=0.50,0.50,0.50](force-bob)[/color]"
+function helpers.force_tag(force_name)
+    return " [color=0.50,0.50,0.50](" .. force_name .. ")[/color]"
 end
 
 --- Build a Factorio rich-text colored tag for a player.

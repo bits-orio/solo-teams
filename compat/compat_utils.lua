@@ -10,6 +10,17 @@ local helpers = require("helpers")
 
 local compat_utils = {}
 
+--- Default character starting items for vanilla / VoidBlock modes.
+--- Mirrors the Factorio freeplay starting loadout.
+compat_utils.CHARACTER_STARTING_ITEMS = {
+    {name = "iron-plate",          count = 8},
+    {name = "wood",                count = 1},
+    {name = "pistol",              count = 1},
+    {name = "firearm-magazine",    count = 10},
+    {name = "burner-mining-drill", count = 1},
+    {name = "stone-furnace",       count = 1},
+}
+
 --- Capitalize first letter of planet name for display.
 --- planet "nauvis" -> "Nauvis"
 function compat_utils.planet_display_name(planet)
