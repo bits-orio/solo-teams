@@ -247,8 +247,12 @@ function landing_pen.build_pen_gui(player)
     sub.style.bottom_margin = 4
     sub.style.left_margin   = 4
 
-    add_pen_player_list(frame, player)
-    add_spawned_player_list(frame)
+    local scroll = frame.add{type = "scroll-pane", direction = "vertical"}
+    scroll.style.maximal_height = 800
+
+    add_pen_player_list(scroll, player)
+    add_spawned_player_list(scroll)
+    add_buddy_section(scroll, player)
 
     frame.add{type = "line"}.style.top_margin = 6
     local btn = frame.add{
@@ -258,8 +262,6 @@ function landing_pen.build_pen_gui(player)
     btn.style.top_margin              = 4
     btn.style.bottom_margin           = 2
     btn.style.horizontally_stretchable = true
-
-    add_buddy_section(frame, player)
 end
 
 function landing_pen.update_pen_gui_all()
