@@ -1,4 +1,32 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.2.20
+Date: 2026-04-14
+  Features:
+    - Buddy join team size limit: admin dropdown (2-10, default 2) controls max players per team
+    - /mts-leave command: any player can leave their team and return to the Landing Pen
+    - /mts-kick command: team leader can kick members from their team
+    - Team leadership transfer: when owner leaves, next member is promoted and all players are notified
+    - Admin Starter Items tab: configure starting inventory by copying from inventory or adding items manually
+    - Starter items auto-populated from first player's inventory on initial spawn
+    - New admin-added starter items are distributed to all already-spawned players immediately
+    - Anti-abuse: inventory cleared when rejoining a team previously left
+    - Landing Pen GUI is now scrollable for large player counts
+    - Team spawn announcement broadcast when a player starts their team
+  Changes:
+    - Rename force prefix from "player-" to "force-"
+    - Rename commands from /st-* to /mts-*
+    - Player names in system messages are now colorized with their chat color
+    - Force name shown in grey brackets after every "team" mention in chat messages
+    - Force name shown next to owner name in the Players GUI
+    - Leave Team button removed from Players GUI (use /mts-leave instead)
+  Bugfixes:
+    - Fix multiplayer desync caused by storage writes in on_load
+    - Fix team size not decrementing when force owner leaves
+    - Fix Players GUI showing old owner name after team leadership transfer
+    - Fix "Return to my base" button appearing for players in the Landing Pen
+    - Fix crash from duplicate GUI element names in Starter Items tab
+
+---------------------------------------------------------------------------------------------------
 Version: 0.2.17
 Date: 2026-04-08
   Features:
