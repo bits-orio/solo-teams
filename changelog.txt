@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.2
+Date: 2026-04-16
+  Other:
+    - Release workflow: release notes now cover changes since the last
+      PUBLISHED release (queried via the GitHub API) instead of just the
+      current version's changelog entry. Handles cases where an intermediate
+      version was tagged but never published — its changelog gets included
+      in the next successful release's notes. Same notes used for both the
+      GitHub release body and the Discord announcement.
+
+---------------------------------------------------------------------------------------------------
 Version: 0.3.1
 Date: 2026-04-16
   Features:
