@@ -139,14 +139,20 @@ jobs:
 
       - name: Post release announcement to Discord
         if: ${{ env.DISCORD_WEBHOOK != '' }}
+        env:
+          # Pass via env rather than ${{ … }} template substitution in the
+          # run script. Template values are inlined LITERALLY into the bash
+          # script; if NOTES contains a double quote (e.g. the word
+          # "Start a new team" in the changelog) it closes the bash string
+          # assignment prematurely and the rest becomes bash commands.
+          # Env vars go through the OS environment — no bash parsing pitfalls.
+          RELEASE_VERSION: ${{ steps.info.outputs.version }}
+          RELEASE_URL:     ${{ steps.release.outputs.url }}
+          RELEASE_NOTES:   ${{ steps.notes.outputs.notes }}
         run: |
-          VERSION="${{ steps.info.outputs.version }}"
-          RELEASE_URL="${{ steps.release.outputs.url }}"
-          NOTES="${{ steps.notes.outputs.notes }}"
-
           PAYLOAD=$(jq -n \
-            --arg title "Multi-Team Support v${VERSION} Released!" \
-            --arg desc  "$NOTES" \
+            --arg title "Multi-Team Support v${RELEASE_VERSION} Released!" \
+            --arg desc  "$RELEASE_NOTES" \
             --arg url   "$RELEASE_URL" \
             '{
               embeds: [{
