@@ -10,9 +10,9 @@
 -- team-centric view.
 
 local nav           = require("gui.nav")
-local spectator     = require("spectator")
-local helpers       = require("helpers")
-local surface_utils = require("surface_utils")
+local spectator     = require("scripts.spectator")
+local helpers       = require("scripts.helpers")
+local surface_utils = require("scripts.surface_utils")
 local friendship    = require("gui.friendship")
 local admin_gui     = require("gui.admin")
 local landing_pen   = require("gui.landing_pen")

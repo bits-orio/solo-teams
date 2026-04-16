@@ -7,12 +7,12 @@
 -- own team or request to join an existing team.
 
 local admin_gui    = require("gui.admin")
-local helpers      = require("helpers")
+local helpers      = require("scripts.helpers")
 local terrain      = require("gui.landing_pen_terrain")
 local platformer   = require("compat.platformer")
 local voidblock    = require("compat.voidblock")
 local compat_utils = require("compat.compat_utils")
-local force_utils  = require("force_utils")
+local force_utils  = require("scripts.force_utils")
 
 local landing_pen = {}
 

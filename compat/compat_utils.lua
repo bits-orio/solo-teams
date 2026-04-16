@@ -6,9 +6,9 @@
 -- Extracts common logic: surface naming, teleport queue, display names,
 -- and the setup_player_surface skeleton.
 
-local helpers    = require("helpers")
-local space_age  = require("space_age")
-local planet_map = require("planet_map")
+local helpers    = require("scripts.helpers")
+local space_age  = require("scripts.space_age")
+local planet_map = require("scripts.planet_map")
 
 local compat_utils = {}
 

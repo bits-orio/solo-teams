@@ -6,9 +6,9 @@
 -- Mutual friendship semantics: both sides must agree before it
 -- activates; either side can break it immediately.
 
-local spectator     = require("spectator")
-local helpers       = require("helpers")
-local surface_utils = require("surface_utils")
+local spectator     = require("scripts.spectator")
+local helpers       = require("scripts.helpers")
+local surface_utils = require("scripts.surface_utils")
 
 local friendship = {}
 

@@ -14,7 +14,7 @@
 -- The base planets themselves are left intact; they are locked for team
 -- forces at runtime so teams can only see/reach their own variants.
 
-local space_age = require("space_age")
+local space_age = require("scripts.space_age")
 
 -- Guard: only runs if this file is required (data.lua conditionally requires it)
 assert(data.raw.planet, "planets.lua: data.raw.planet is missing")

@@ -11,8 +11,8 @@
 -- instead (no force swap needed — friendship grants chart access).
 
 local admin_gui     = require("gui.admin")
-local helpers       = require("helpers")
-local surface_utils = require("surface_utils")
+local helpers       = require("scripts.helpers")
+local surface_utils = require("scripts.surface_utils")
 
 local spectator = {}
 

@@ -10,7 +10,7 @@
 -- Call on_init() from on_init and on_player_created(player) from
 -- on_player_created, both guarded by is_active().
 
-local helpers = require("helpers")
+local helpers = require("scripts.helpers")
 
 local platformer = {}
 

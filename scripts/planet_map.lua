@@ -17,9 +17,9 @@
 --   storage.map_planet_to_force["mts-nauvis-1"]   = "team-1"
 --   storage.map_planet_to_force["mts-vulcanus-1"] = "team-1"
 
-local space_age = require("space_age")
+local space_age = require("scripts.space_age")
 
--- NOTE: We deliberately do NOT require("force_utils") here because
+-- NOTE: We deliberately do NOT require("scripts.force_utils") here because
 -- force_utils requires this module at load time — a circular require
 -- would return a stale (half-loaded) force_utils table. Instead we
 -- inline the two tiny helpers we need below.

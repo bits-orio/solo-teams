@@ -29,7 +29,7 @@
 --   storage.tech_research_ticks[force_name][tech_name] = game.tick researched
 
 local nav           = require("gui.nav")
-local helpers       = require("helpers")
+local helpers       = require("scripts.helpers")
 local research_diff = require("gui.research_diff")
 
 local research_gui = {}

@@ -8,10 +8,10 @@
 -- Uses the shared records module for first/fastest logic.
 -- Uses team clocks (storage.team_clock_start) for elapsed-time measurement.
 
-local records       = require("records")
-local helpers       = require("helpers")
-local force_utils   = require("force_utils")
-local planet_map    = require("planet_map")
+local records       = require("scripts.records")
+local helpers       = require("scripts.helpers")
+local force_utils   = require("scripts.force_utils")
+local planet_map    = require("scripts.planet_map")
 
 local tech_records = {}
 

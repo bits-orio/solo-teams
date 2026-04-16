@@ -8,7 +8,7 @@
 -- Tab: Feature Flags
 --   landing_pen_enabled  — whether new players land in the pen or spawn directly
 
-local helpers = require("helpers")
+local helpers = require("scripts.helpers")
 local nav     = require("gui.nav")
 
 local admin_gui = {}

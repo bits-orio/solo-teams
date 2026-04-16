@@ -9,10 +9,10 @@
 -- Players claim a team slot on spawn and release it when leaving.
 -- Force names never change — only the display name and leader can change.
 
-local helpers       = require("helpers")
-local spectator     = require("spectator")
-local surface_utils = require("surface_utils")
-local planet_map    = require("planet_map")
+local helpers       = require("scripts.helpers")
+local spectator     = require("scripts.spectator")
+local surface_utils = require("scripts.surface_utils")
+local planet_map    = require("scripts.planet_map")
 
 local force_utils = {}
 

@@ -6,11 +6,11 @@
 -- and delegates to specialized modules.
 
 local nav             = require("gui.nav")
-local helpers         = require("helpers")
-local spectator       = require("spectator")
-local force_utils     = require("force_utils")
-local surface_utils   = require("surface_utils")
-local commands_mod    = require("commands")
+local helpers         = require("scripts.helpers")
+local spectator       = require("scripts.spectator")
+local force_utils     = require("scripts.force_utils")
+local surface_utils   = require("scripts.surface_utils")
+local commands_mod    = require("scripts.commands")
 local teams_gui       = require("gui.teams")
 local stats_gui       = require("gui.stats")
 local landing_pen     = require("gui.landing_pen")
@@ -21,12 +21,12 @@ local platformer      = require("compat.platformer")
 local vanilla         = require("compat.vanilla")
 local voidblock       = require("compat.voidblock")
 local friendship      = require("gui.friendship")
-local tech_records    = require("tech_records")
+local tech_records    = require("scripts.tech_records")
 local milestones      = require("milestones.engine")
 local confirm_gui     = require("gui.confirm")
 local follow_cam      = require("gui.follow_cam")
-local planet_map      = require("planet_map")
-local space_age       = require("space_age")
+local planet_map      = require("scripts.planet_map")
+local space_age       = require("scripts.space_age")
 
 -- ─── Helpers ───────────────────────────────────────────────────────────
 

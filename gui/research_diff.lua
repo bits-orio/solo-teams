@@ -4,7 +4,7 @@
 --
 -- Shared tech helpers and diff-mode renderer extracted from research_gui.lua.
 
-local helpers = require("helpers")
+local helpers = require("scripts.helpers")
 
 local research_diff = {}
 

@@ -14,7 +14,7 @@
 -- We skip connections involving "solar-system-edge" or whose endpoints
 -- aren't in our BASE_PLANETS list (e.g. modded custom planets).
 
-local space_age = require("space_age")
+local space_age = require("scripts.space_age")
 
 assert(data.raw["space-connection"], "connections.lua: no space-connection prototypes loaded")
 

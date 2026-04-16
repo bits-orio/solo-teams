@@ -16,8 +16,8 @@
 --     cameras = {[target_index] = LuaGuiElement, ...},  -- rebuilt on changes
 --   }
 
-local helpers   = require("helpers")
-local spectator = require("spectator")
+local helpers   = require("scripts.helpers")
+local spectator = require("scripts.spectator")
 
 local follow_cam = {}
 

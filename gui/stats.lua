@@ -13,7 +13,7 @@
 -- shown so players can fill blank ones to add items.
 
 local nav = require("gui.nav")
-local helpers = require("helpers")
+local helpers = require("scripts.helpers")
 
 local stats_gui = {}
 

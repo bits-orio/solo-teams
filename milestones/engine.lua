@@ -8,9 +8,9 @@
 -- Polled every 300 ticks (5 seconds) via on_nth_tick in control.lua.
 -- Uses the shared records module for first/fastest logic.
 
-local records     = require("records")
-local helpers     = require("helpers")
-local force_utils = require("force_utils")
+local records     = require("scripts.records")
+local helpers     = require("scripts.helpers")
+local force_utils = require("scripts.force_utils")
 local config      = require("milestones.config")
 
 local engine = {}

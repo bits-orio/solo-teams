@@ -10,10 +10,10 @@
 --   /mts-rename   - rename your team (team leader only)
 
 local teams_gui     = require("gui.teams")
-local helpers       = require("helpers")
-local force_utils   = require("force_utils")
+local helpers       = require("scripts.helpers")
+local force_utils   = require("scripts.force_utils")
 local landing_pen   = require("gui.landing_pen")
-local spectator     = require("spectator")
+local spectator     = require("scripts.spectator")
 local confirm       = require("gui.confirm")
 
 local commands_mod = {}

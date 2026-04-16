@@ -16,7 +16,7 @@
 -- Modules register handlers via confirm.register(action_name, fn).
 -- The handler is invoked with (player, data_tags) when the user clicks Confirm.
 
-local helpers = require("helpers")
+local helpers = require("scripts.helpers")
 
 local confirm = {}
 
