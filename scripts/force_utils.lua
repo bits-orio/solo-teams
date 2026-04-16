@@ -391,19 +391,17 @@ function force_utils.bounce_if_foreign(player)
     if spawned then
         local home = force_utils.get_home_surface(player)
         if not home then
-            log("[multi-team-support] " .. player.name .. " on foreign surface "
-                .. (player.surface and player.surface.name or "nil")
-                .. " but no home surface found")
+            helpers.diag("bounce_if_foreign: no home found (spawned)", player)
             return
         end
-        log("[multi-team-support] bouncing " .. player.name .. " from "
-            .. player.surface.name .. " → " .. home.name)
+        helpers.diag("bounce_if_foreign: TELEPORT → " .. home.name
+            .. " (spawned branch)", player)
         player.teleport(helpers.ORIGIN, home)
     else
         local pen = game.surfaces["landing-pen"]
         if pen and pen.valid and player.surface.name ~= "landing-pen" then
-            log("[multi-team-support] bouncing " .. player.name .. " from "
-                .. player.surface.name .. " → landing-pen")
+            helpers.diag("bounce_if_foreign: TELEPORT → landing-pen"
+                .. " (UNSPAWNED branch)", player)
             player.teleport(helpers.ORIGIN, pen)
         end
     end

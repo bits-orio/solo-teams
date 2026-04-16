@@ -13,6 +13,61 @@ local helpers = {}
 helpers.WHITE  = {r = 1, g = 1, b = 1}
 helpers.ORIGIN = {x = 0, y = 0}
 
+-- ─── Surface Hiding Wrapper ────────────────────────────────────────────
+-- Wrapper around force.set_surface_hidden that also validates arguments.
+-- The DISABLE_SURFACE_HIDING kill-switch remains in place as a debugging
+-- lever in case we need to rule out hiding again in the future (the
+-- Platformer landing-pen teleport bug was caused by the interaction of
+-- set_surface_hidden with god-mode players; see the god_pre_remote guard
+-- in control.lua's on_player_controller_changed handler for the fix).
+helpers.DISABLE_SURFACE_HIDING = false
+
+function helpers.set_surface_hidden(force, surface, hidden)
+    if helpers.DISABLE_SURFACE_HIDING then return end
+    if not (force and force.valid and surface and surface.valid) then return end
+    force.set_surface_hidden(surface, hidden)
+end
+
+-- ─── Diagnostic Logging ────────────────────────────────────────────────
+
+--- Return a compact "(x,y)" string for a position table.
+local function fmt_pos(p)
+    if not p then return "?" end
+    return string.format("(%.1f,%.1f)", p.x or 0, p.y or 0)
+end
+
+--- Return a comprehensive state string for a player, including:
+---   name, force, surface, position, physical_surface, physical_position,
+---   controller_type (useful for detecting remote vs character view).
+--- Used by diagnostic log statements across the mod.
+function helpers.player_state(player)
+    if not (player and player.valid) then return "?" end
+    local ctrl = player.controller_type
+    local ctrl_name = "?"
+    for name, id in pairs(defines.controllers) do
+        if id == ctrl then ctrl_name = name; break end
+    end
+    local ps = player.physical_surface
+    local s  = player.surface
+    return string.format(
+        "%s force=%s surface=%s pos=%s phys_surface=%s phys_pos=%s ctrl=%s",
+        player.name,
+        player.force and player.force.name or "?",
+        (s and s.valid) and s.name or "?",
+        fmt_pos(player.position),
+        (ps and ps.valid) and ps.name or "?",
+        fmt_pos(player.physical_position),
+        ctrl_name
+    )
+end
+
+--- Log a [DIAG] line with free-form context + player state snapshot.
+--- Safe if player is nil.
+function helpers.diag(context, player)
+    log("[multi-team-support:DIAG] " .. context
+        .. " | " .. helpers.player_state(player))
+end
+
 -- ─── Force Helpers ─────────────────────────────────────────────────────
 
 --- Get the display name for a force.

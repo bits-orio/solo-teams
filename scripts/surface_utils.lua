@@ -6,6 +6,8 @@
 -- Extracted from spectator.lua — these are surface-level concerns, not
 -- spectator-specific.
 
+local helpers = require("scripts.helpers")
+
 local surface_utils = {}
 
 --- Given a surface, return the force name that owns it, or nil.
@@ -76,9 +78,9 @@ function surface_utils.update_visibility(force_a, force_b, are_friends)
     for _, surface in pairs(game.surfaces) do
         local owner = surface_utils.get_owner(surface)
         if owner == force_a.name then
-            force_b.set_surface_hidden(surface, not are_friends)
+            helpers.set_surface_hidden(force_b, surface, not are_friends)
         elseif owner == force_b.name then
-            force_a.set_surface_hidden(surface, not are_friends)
+            helpers.set_surface_hidden(force_a, surface, not are_friends)
         end
     end
 end
@@ -94,7 +96,7 @@ function surface_utils.on_surface_created(surface)
         if force.name:find("^team%-") and force.name ~= owner_fn then
             local are_friends = force.get_friend(owner_force)
                 and owner_force.get_friend(force)
-            force.set_surface_hidden(surface, not are_friends)
+            helpers.set_surface_hidden(force, surface, not are_friends)
         end
     end
 
@@ -110,7 +112,7 @@ function surface_utils.on_surface_created(surface)
                 end
             end
         end
-        spec.set_surface_hidden(surface, not spectated)
+        helpers.set_surface_hidden(spec, surface, not spectated)
     end
 end
 

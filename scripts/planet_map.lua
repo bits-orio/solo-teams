@@ -18,6 +18,7 @@
 --   storage.map_planet_to_force["mts-vulcanus-1"] = "team-1"
 
 local space_age = require("scripts.space_age")
+local helpers   = require("scripts.helpers")
 
 -- NOTE: We deliberately do NOT require("scripts.force_utils") here because
 -- force_utils requires this module at load time — a circular require
@@ -105,11 +106,17 @@ function planet_map.apply_force_locks(force)
     if not is_team_force(force.name) then return end
 
     -- Always hide the default nauvis surface from team forces. Teams have
-    -- either a cloned surface (base 2.0) or a planet variant (Space Age);
-    -- they never play on the shared default nauvis.
+    -- either a cloned surface (base 2.0 / VoidBlock) or a planet variant
+    -- (Space Age); they never play on the shared default nauvis.
+    --
+    -- Note: hiding in Platformer mode used to trigger a Factorio SurfaceList
+    -- engine quirk that dumped god-mode players onto the landing-pen after
+    -- escaping a remote view. That's now mitigated by the god_pre_remote
+    -- save/restore in control.lua's on_player_controller_changed handler,
+    -- so hiding is safe in all modes.
     local default_nauvis = game.surfaces["nauvis"]
     if default_nauvis and default_nauvis.valid then
-        force.set_surface_hidden(default_nauvis, true)
+        helpers.set_surface_hidden(force, default_nauvis, true)
     end
 
     if not space_age.is_active() then return end
@@ -122,7 +129,7 @@ function planet_map.apply_force_locks(force)
         pcall(function() force.lock_space_location(base) end)
         local planet = game.planets and game.planets[base]
         if planet and planet.surface and planet.surface.valid then
-            force.set_surface_hidden(planet.surface, true)
+            helpers.set_surface_hidden(force, planet.surface, true)
         end
     end
 

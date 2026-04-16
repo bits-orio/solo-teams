@@ -36,6 +36,8 @@ function compat_utils.process_pending_teleports()
     for player_index, surface in pairs(storage.pending_vanilla_tp) do
         local player = game.get_player(player_index)
         if player and player.valid and surface and surface.valid then
+            helpers.diag("compat_utils.process_pending_teleports: TELEPORT → "
+                .. surface.name, player)
             player.teleport(helpers.ORIGIN, surface)
         end
     end

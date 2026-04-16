@@ -169,6 +169,7 @@ script.on_init(function()
     storage.follow_cam_location      = {}
     storage.map_force_to_planets     = {}
     storage.map_planet_to_force      = {}
+    storage.god_pre_remote           = {}
     storage.research_gui_location    = {}
     storage.research_gui_expanded    = {}
     storage.research_gui_diff_target = {}
@@ -211,6 +212,7 @@ script.on_configuration_changed(function()
     storage.follow_cam_location      = storage.follow_cam_location      or {}
     storage.map_force_to_planets     = storage.map_force_to_planets     or {}
     storage.map_planet_to_force      = storage.map_planet_to_force      or {}
+    storage.god_pre_remote           = storage.god_pre_remote           or {}
     storage.research_gui_location    = storage.research_gui_location    or {}
     storage.research_gui_expanded    = storage.research_gui_expanded    or {}
     storage.research_gui_diff_target = storage.research_gui_diff_target or {}
@@ -311,22 +313,63 @@ end)
 script.on_event(defines.events.on_player_changed_surface, function(event)
     local player = game.get_player(event.player_index)
     if player and player.connected then
+        helpers.diag("on_player_changed_surface (before handlers)", player)
         if spectator.is_spectating(player)
            and player.controller_type ~= defines.controllers.remote then
             spectator.exit(player)
         end
-        log("[multi-team-support] surface_change: " .. player.name
-            .. " → " .. (player.surface and player.surface.name or "nil"))
         force_utils.bounce_if_foreign(player)
         teams_gui.build_gui(player)
+        helpers.diag("on_player_changed_surface (after handlers)", player)
     end
 end)
 
 script.on_event(defines.events.on_player_controller_changed, function(event)
     local player = game.get_player(event.player_index)
     if player and player.connected then
-        spectator.on_controller_changed(player, event.old_controller_type)
+        helpers.diag("on_player_controller_changed (before handlers, old_ctrl="
+            .. tostring(event.old_type) .. ")", player)
+
+        -- Anchor god-mode position across remote-view round-trips.
+        --
+        -- In Platformer mode the player has no character and lives in a god
+        -- controller whose position IS the player's physical position. When
+        -- they enter a remote view of another surface and press Esc, Factorio
+        -- drops the god cursor onto the last-viewed surface (e.g. landing-pen)
+        -- because there's no character to fall back to.
+        --
+        -- Workaround: when entering remote view from god, save the god's
+        -- physical surface+position. When exiting remote back to god, if the
+        -- physical surface changed, teleport the god back to the saved spot.
+        storage.god_pre_remote = storage.god_pre_remote or {}
+        if event.old_type == defines.controllers.god
+           and player.controller_type == defines.controllers.remote
+           and player.physical_surface and player.physical_surface.valid then
+            storage.god_pre_remote[player.index] = {
+                surface_name = player.physical_surface.name,
+                position     = {
+                    x = player.physical_position.x,
+                    y = player.physical_position.y,
+                },
+            }
+        elseif event.old_type == defines.controllers.remote
+           and player.controller_type == defines.controllers.god then
+            local saved = storage.god_pre_remote[player.index]
+            storage.god_pre_remote[player.index] = nil
+            if saved and player.physical_surface
+               and player.physical_surface.name ~= saved.surface_name then
+                local s = game.surfaces[saved.surface_name]
+                if s and s.valid then
+                    helpers.diag("god_pre_remote: restoring god to "
+                        .. saved.surface_name, player)
+                    player.teleport(saved.position, s)
+                end
+            end
+        end
+
+        spectator.on_controller_changed(player, event.old_type)
         force_utils.bounce_if_foreign(player)
+        helpers.diag("on_player_controller_changed (after handlers)", player)
     end
 end)
 

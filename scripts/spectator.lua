@@ -76,10 +76,10 @@ local function update_spectator_surfaces()
 
     for _, surface in pairs(game.surfaces) do
         if surface.name == "landing-pen" then
-            spec.set_surface_hidden(surface, false)
+            helpers.set_surface_hidden(spec, surface, false)
         else
             local owner = surface_utils.get_owner(surface)
-            spec.set_surface_hidden(surface, not (owner and visible_forces[owner]))
+            helpers.set_surface_hidden(spec, surface, not (owner and visible_forces[owner]))
         end
     end
 end
@@ -194,7 +194,7 @@ function spectator.init()
     -- shown per-target when a player starts spectating.
     for _, surface in pairs(game.surfaces) do
         if surface.name ~= "landing-pen" then
-            spec.set_surface_hidden(surface, true)
+            helpers.set_surface_hidden(spec, surface, true)
         end
     end
 
@@ -216,7 +216,7 @@ function spectator.setup_force(new_force)
     for _, surface in pairs(game.surfaces) do
         local owner = surface_utils.get_owner(surface)
         if owner and owner ~= new_force.name then
-            new_force.set_surface_hidden(surface, true)
+            helpers.set_surface_hidden(new_force, surface, true)
         end
     end
 
@@ -315,6 +315,9 @@ function spectator.exit(player)
                 player.character.name, target_pos, 8, 0.5)
             target_pos = safe or target_pos
         end
+        helpers.diag("spectator.exit: TELEPORT → " .. target_surface.name
+            .. " at " .. string.format("(%.1f,%.1f)", target_pos.x, target_pos.y),
+            player)
         player.teleport(target_pos, target_surface)
     end
     storage.spectator_saved_location[player.index] = nil

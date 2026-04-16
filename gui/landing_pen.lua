@@ -99,6 +99,8 @@ function landing_pen.process_pending_teleports()
             if player.controller_type == defines.controllers.cutscene then
                 player.exit_cutscene()
             end
+            helpers.diag("landing_pen.process_pending_teleports: TELEPORT → "
+                .. tp.surface.name, player)
             local ok = player.teleport(tp.position, tp.surface)
             if ok then
                 -- Pen players stay on spectator force until they click "Spawn"
@@ -412,6 +414,7 @@ function landing_pen.return_to_pen(player)
     if not player.character then
         player.set_controller({type = defines.controllers.god})
     end
+    helpers.diag("landing_pen.return_to_pen: TELEPORT → " .. surface.name, player)
     player.teleport(pos, surface)
     if not player.character then
         player.create_character()

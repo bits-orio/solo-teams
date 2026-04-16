@@ -546,6 +546,8 @@ local function on_return_to_base(player)
                 player.character.name, target_pos, 8, 0.5)
             target_pos = safe or target_pos
         end
+        helpers.diag("teams_gui.on_return_to_base: TELEPORT → "
+            .. target_surface.name, player)
         player.teleport(target_pos, target_surface)
     end
 end
