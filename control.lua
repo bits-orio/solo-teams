@@ -20,6 +20,7 @@ local research_gui    = require("gui.research")
 local platformer      = require("compat.platformer")
 local vanilla         = require("compat.vanilla")
 local voidblock       = require("compat.voidblock")
+local dangoreus       = require("compat.dangoreus")
 local friendship      = require("gui.friendship")
 local tech_records    = require("scripts.tech_records")
 local milestones      = require("milestones.engine")
@@ -86,6 +87,9 @@ local function init_events()
         if voidblock.is_active() then
             voidblock.on_chunk_generated(event)
         end
+        if dangoreus.is_active() then
+            dangoreus.on_chunk_generated(event)
+        end
     end)
     script.on_event(defines.events.on_surface_created, function(event)
         local surface = game.surfaces[event.surface_index]
@@ -94,8 +98,25 @@ local function init_events()
             -- Space Age: when a base planet's surface is lazily created,
             -- re-apply locks so all team forces hide it.
             planet_map.apply_all_force_locks()
+            -- dangOreus: build resource_table for new team surfaces.
+            if dangoreus.is_active() then
+                dangoreus.setup_surface(surface)
+            end
         end
     end)
+
+    -- dangOreus compat: block non-miners on ore, spill on destroyed containers.
+    if dangoreus.is_active() then
+        script.on_event({
+            defines.events.on_built_entity,
+            defines.events.on_robot_built_entity,
+            defines.events.script_raised_built,
+            defines.events.script_raised_revive,
+        }, dangoreus.on_built_entity)
+        script.on_event(defines.events.on_entity_died, dangoreus.on_entity_died)
+        -- Floor-is-lava tick (same cadence as dangOreus)
+        script.on_nth_tick(120, dangoreus.on_nth_tick)
+    end
 
     -- Re-apply space-location locks when force state is reset externally
     -- (mirrors Team Starts' approach for Space Age).
@@ -170,6 +191,7 @@ script.on_init(function()
     storage.map_force_to_planets     = {}
     storage.map_planet_to_force      = {}
     storage.god_pre_remote           = {}
+    storage.dangoreus                = {}
     storage.research_gui_location    = {}
     storage.research_gui_expanded    = {}
     storage.research_gui_diff_target = {}
@@ -189,6 +211,9 @@ script.on_init(function()
     -- Initialize records and milestone tracking
     tech_records.init_storage()
     milestones.discover_items()
+
+    -- dangOreus compat: port its logic onto our team nauvis surfaces
+    dangoreus.init()
 
     commands_mod.register()
     init_events()
@@ -213,6 +238,7 @@ script.on_configuration_changed(function()
     storage.map_force_to_planets     = storage.map_force_to_planets     or {}
     storage.map_planet_to_force      = storage.map_planet_to_force      or {}
     storage.god_pre_remote           = storage.god_pre_remote           or {}
+    storage.dangoreus                = storage.dangoreus                or {}
     storage.research_gui_location    = storage.research_gui_location    or {}
     storage.research_gui_expanded    = storage.research_gui_expanded    or {}
     storage.research_gui_diff_target = storage.research_gui_diff_target or {}
@@ -242,6 +268,9 @@ script.on_configuration_changed(function()
     -- Space Age added/removed, or variant prototypes changing.
     planet_map.build()
     planet_map.apply_all_force_locks()
+
+    -- Re-init dangOreus compat (may be newly added/removed)
+    dangoreus.init()
 
     init_events()
 end)

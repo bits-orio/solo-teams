@@ -1,4 +1,43 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.1
+Date: 2026-04-16
+  Features:
+    - dangOreus mod compatibility: when dangOreus is active, dangOreus's
+      chunk-gen behavior (ore flooding, anti-building-on-ore, container
+      spill, floor-is-lava) is applied to each team's nauvis surface
+      (team-N-nauvis in base 2.0 / VoidBlock, mts-nauvis-N in Space Age).
+      Default nauvis is disabled for dangOreus since no team plays there.
+      All five dangOreus modes (pie, random, voronoi, perlin, spiral) work.
+      Perlin mode also fixes an upstream bug where integer coordinates
+      collapsed the noise output to a constant (ore variety restored via
+      coordinate scaling).
+  Bugfixes:
+    - Platformer mode: fix player being teleported to the landing-pen
+      surface after pressing Escape from a remote view. Root cause was
+      Factorio's god-controller cursor following the last-viewed surface
+      when there's no character to anchor position (Platformer players
+      have no character by design). Mitigated by saving the god's
+      physical_surface + physical_position before entering remote view
+      and teleporting back on exit (god_pre_remote anchor in
+      on_player_controller_changed).
+    - Fix on_player_controller_changed handlers referencing the wrong
+      event field. Factorio 2.0 uses event.old_type, not
+      event.old_controller_type; the mismatched field silently read nil,
+      so prior attempts at this fix never actually executed.
+    - Re-enable hiding the default nauvis surface from team forces in
+      all modes (base 2.0, VoidBlock, Platformer) now that the
+      god_pre_remote guard protects against the related SurfaceList
+      engine quirk.
+  Other:
+    - Diagnostic logging: helpers.diag() + helpers.player_state() instrument
+      every surface/controller event and every teleport call site with
+      force/surface/position/physical_surface/physical_position/controller
+      type, making future position-state bugs far easier to diagnose.
+    - helpers.set_surface_hidden() wrapper (with DISABLE_SURFACE_HIDING
+      kill-switch) routes all force.set_surface_hidden calls through one
+      place so they can be disabled globally for diagnosis.
+
+---------------------------------------------------------------------------------------------------
 Version: 0.3.0
 Date: 2026-04-16
   Features:

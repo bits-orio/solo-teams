@@ -53,6 +53,7 @@ Join the Discord: **https://discord.gg/tWz4FT74pH**
 - Requires **Factorio 2.0** (`base >= 2.0`)
 - **Space Age** — optional; auto-detected and enables per-team planets + space connections when present
 - Compatible with [Platformer](https://mods.factorio.com/mod/platformer) and [VoidBlock](https://mods.factorio.com/mod/VoidBlock)
+- **dangOreus** — optional; when loaded, dangOreus's ore-flooding behavior (all modes: pie, random, voronoi, perlin, spiral) is applied to each team's nauvis surface instead of just the shared default. The default nauvis is disabled for dangOreus since no team plays there.
 - Factorio supports up to 64 forces (20 teams + built-ins leaves plenty of headroom)
 
 ## 📄 License
