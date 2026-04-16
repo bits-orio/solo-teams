@@ -157,7 +157,32 @@ jobs:
               }]
             }')
 
-          curl -fsSL \
+          echo "--- Payload byte size: $(echo -n "$PAYLOAD" | wc -c)"
+          echo "--- Payload preview (sanitized, no webhook URL): ---"
+          echo "$PAYLOAD" | head -c 2000
+          echo ""
+          echo "--- End payload preview ---"
+
+          # Mask the webhook URL from the log BUT capture full HTTP status +
+          # response body so we can see WHY Discord rejected the request.
+          HTTP_CODE=$(curl -sS \
+            -w "%{http_code}" \
+            -o /tmp/discord_response.txt \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" \
-            "$DISCORD_WEBHOOK"
+            "$DISCORD_WEBHOOK")
+          CURL_EXIT=$?
+
+          echo "--- Discord HTTP status: ${HTTP_CODE}"
+          echo "--- curl exit code: ${CURL_EXIT}"
+          echo "--- Discord response body: ---"
+          cat /tmp/discord_response.txt || true
+          echo ""
+          echo "--- End response body ---"
+
+          # Non-2xx means the webhook rejected us. Fail the step so it's
+          # visible, but only after we've logged everything useful.
+          if [ "$CURL_EXIT" -ne 0 ] || [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Discord webhook returned non-success status (${HTTP_CODE})"
+            exit 1
+          fi
