@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need history so we can compare against older tags
 
       - name: Read mod info
         id: info
@@ -22,6 +24,83 @@ jobs:
           echo "name=${NAME}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "folder=${NAME}_${VERSION}" >> "$GITHUB_OUTPUT"
+
+      # Fetch the tag of the most recent PUBLISHED release (not just the most
+      # recent tag — a tag might exist without a release if an earlier workflow
+      # run failed). We run this BEFORE creating the current release so that
+      # "latest" refers to the actual previous one.
+      - name: Fetch previous published release
+        id: prev
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PREV_TAG=$(gh api "repos/${{ github.repository }}/releases/latest" \
+            --jq .tag_name 2>/dev/null || true)
+          PREV_VERSION="${PREV_TAG#v}"
+          echo "tag=${PREV_TAG}"          >> "$GITHUB_OUTPUT"
+          echo "version=${PREV_VERSION}"  >> "$GITHUB_OUTPUT"
+          echo "Previous published release: '${PREV_TAG}' (version '${PREV_VERSION}')"
+
+      # Extract all changelog entries for versions in the range
+      # (prev_published, current]. If prev is empty (very first release),
+      # emit only the current version's entry. Falls back to git log if
+      # changelog.txt has no matching entry.
+      - name: Extract release notes
+        id: notes
+        run: |
+          VERSION="${{ steps.info.outputs.version }}"
+          PREV_VERSION="${{ steps.prev.outputs.version }}"
+
+          # Primary: walk changelog.txt top-down, including entries until we
+          # hit the previous published version. Changelog is newest-first.
+          NOTES=$(awk -v prev="$PREV_VERSION" '
+            BEGIN { collecting = 0 }
+            /^-{50,}$/ {
+              # Separator lines — keep only when collecting, and not the very
+              # first one (which precedes the newest entry).
+              if (collecting) print ""
+              next
+            }
+            /^Version: / {
+              if (prev != "" && $2 == prev) { exit }
+              collecting = 1
+              print "### " $0
+              next
+            }
+            /^Date: / {
+              if (collecting) print "_" $0 "_"
+              next
+            }
+            collecting {
+              sub(/^  /, "")  # strip leading 2-space indent
+              print
+            }
+          ' changelog.txt)
+
+          # Fallback: git log subjects since the previous release tag.
+          if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
+            PREV_TAG="${{ steps.prev.outputs.tag }}"
+            if [ -n "$PREV_TAG" ]; then
+              NOTES=$(git log --pretty=format:"- %s" "${PREV_TAG}..HEAD" \
+                | grep -v "^- Bump version" || true)
+            else
+              NOTES=$(git log --pretty=format:"- %s" HEAD \
+                | grep -v "^- Bump version" \
+                | head -50 || true)
+            fi
+          fi
+
+          # Truncate for Discord limit (embed description ~4096 chars).
+          NOTES="${NOTES:0:4000}"
+          {
+            echo 'notes<<NOTES_EOF'
+            echo "$NOTES"
+            echo 'NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+          echo "--- Release notes preview ---"
+          echo "$NOTES"
+          echo "--- End preview ---"
 
       - name: Build zip
         run: |
@@ -41,36 +120,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.info.outputs.folder }}.zip
-          generate_release_notes: true
-
-      - name: Extract release notes
-        id: notes
-        run: |
-          VERSION="${{ steps.info.outputs.version }}"
-
-          # Primary: parse the manually curated changelog.txt entry.
-          NOTES=$(awk "
-            /^Version: ${VERSION}/{f=1;next}
-            f && /^Date:/{next}
-            f && /^-{50}/{exit}
-            f{sub(/^  /,\"\"); print}
-          " changelog.txt)
-
-          # Fallback: git commit subjects since the previous tag.
-          if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
-            PREV_TAG=$(git tag --sort=-version:refname | sed -n '2p')
-            if [ -n "$PREV_TAG" ]; then
-              NOTES=$(git log --pretty=format:"- %s" "${PREV_TAG}..HEAD" \
-                | grep -v "^- Bump version")
-            fi
-          fi
-
-          NOTES="${NOTES:0:4000}"
-          {
-            echo 'notes<<NOTES_EOF'
-            echo "$NOTES"
-            echo 'NOTES_EOF'
-          } >> "$GITHUB_OUTPUT"
+          body: ${{ steps.notes.outputs.notes }}
+          append_body: true            # append our notes AFTER GitHub auto-gen
+          generate_release_notes: true # auto-gen commit/PR list
 
       - name: Post release announcement to Discord
         if: ${{ env.DISCORD_WEBHOOK != '' }}
