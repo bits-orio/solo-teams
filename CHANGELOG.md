@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.6
+
+- Fix unresponsive landing pen buttons after a mod version upgrade —
+  on_configuration_changed was back-filling the "spawned" flag for every
+  player, including those currently in the pen, which made is_in_pen
+  return false and silently gate every pen button
+
 ## 0.3.5
 
 - Fix top-bar buttons (Teams, Stats, Research, Welcome) not working in saves

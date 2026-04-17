@@ -248,8 +248,12 @@ script.on_configuration_changed(function()
     storage.team_names               = storage.team_names               or {}
     storage.team_clock_start         = storage.team_clock_start         or {}
     storage.left_teams               = storage.left_teams               or {}
+    -- Back-fill spawned_players for users upgrading from a version that
+    -- didn't track this flag. Skip players currently in the landing pen,
+    -- otherwise their pen buttons go dead (is_in_pen would return false).
     for _, player in pairs(game.players) do
-        if not storage.spawned_players[player.index] then
+        if not storage.spawned_players[player.index]
+           and player.surface and player.surface.name ~= "landing-pen" then
             storage.spawned_players[player.index] = true
         end
     end
