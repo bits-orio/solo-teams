@@ -122,6 +122,7 @@ local function perform_disband(admin_player, data)
 
     helpers.broadcast("[Team] " .. team_tag .. " has been disbanded by an admin.")
     teams_gui.update_all()
+    landing_pen.update_pen_gui_all()
     admin_player.print("Disbanded " .. team_tag .. ".")
 end
 

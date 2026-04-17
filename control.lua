@@ -272,6 +272,11 @@ script.on_configuration_changed(function()
     -- Re-init dangOreus compat (may be newly added/removed)
     dangoreus.init()
 
+    -- Rebuild open GUIs so any layout/data changes from the version bump
+    -- take effect immediately instead of showing stale content.
+    landing_pen.update_pen_gui_all()
+    teams_gui.update_all()
+
     init_events()
 end)
 
