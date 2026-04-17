@@ -101,11 +101,19 @@ local function perform_disband(admin_player, data)
         storage.left_teams[member.index] = storage.left_teams[member.index] or {}
         storage.left_teams[member.index][force_name] = true
 
-        -- Move to spectator force then landing pen
+        -- Move to spectator force
         local spec_force = game.forces["spectator"]
         if spec_force then member.force = spec_force end
-        landing_pen.return_to_pen(member)
-        member.print("Your team " .. team_tag .. " has been disbanded by an admin.")
+
+        if member.connected then
+            landing_pen.return_to_pen(member)
+            member.print("Your team " .. team_tag .. " has been disbanded by an admin.")
+        else
+            -- Offline players can't teleport or create characters.
+            -- Clear spawned flag so they land in the pen on reconnect.
+            storage.spawned_players = storage.spawned_players or {}
+            storage.spawned_players[member.index] = nil
+        end
     end
 
     -- Clean up surfaces/platforms and release the slot
