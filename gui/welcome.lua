@@ -17,7 +17,8 @@
 --   Registered as sprite "sb-qr-code" in data.lua.
 --   Discord icon: graphics/discord-icon.png → sprite "sb-discord".
 
-local nav = require("gui.nav")
+local nav       = require("gui.nav")
+local space_age = require("scripts.space_age")
 
 local welcome_gui = {}
 
@@ -69,27 +70,38 @@ local function draw_about(parent)
 
     section(
         "What is Multi-Team Support?",
-        "Every player gets their own independent force. Research your own " ..
-        "tech tree, build your own factory, and progress at your own pace, " ..
-        "all on the same shared map."
+        "Each team races on their own copy of the world. Research " ..
+        "independently, build separately, and compare progress as you go " ..
+        "— same start, different finish."
     )
     section(
-        "Forces & diplomacy",
-        "Your personal force starts in cease-fire with all others. You can " ..
-        "see each other's bases but can't accidentally damage them. " ..
-        "Enable 'friend' in the Players panel to allow full cooperation."
+        "Teams & diplomacy",
+        "Your team's force starts in cease-fire with all others. Other " ..
+        "teams' surfaces are hidden until both sides toggle 'friend' in " ..
+        "the Teams panel — once mutual, you share chart visibility and " ..
+        "can spectate each other."
     )
+    if space_age.is_active() then
+        section(
+            "Space Age",
+            "Each team gets their own Nauvis, Vulcanus, Gleba, Fulgora, " ..
+            "and Aquilo. No collisions, no shared landings."
+        )
+    end
     section(
         "Navigation bar",
-        "[img=utility/gps_map_icon] Players & Platforms - see all players and their locations\n" ..
-        "[img=item/production-science-pack] Production Stats - compare your factory output\n" ..
-        "[img=item/lab] Research - compare tech trees with a 1-on-1 diff view\n" ..
-        "[img=virtual-signal/signal-info] This screen - reopen anytime"
+        "[img=utility/gps_map_icon] Teams - members, surfaces, friend toggles, Follow Cam launchers\n" ..
+        "[img=item/lab] Research - tech grid with 1-on-1 diff view\n" ..
+        "[img=item/production-science-pack] Production Stats - per-team output comparison\n" ..
+        "[img=quality/legendary] Team Awards - leaderboards across research, science, and resources\n" ..
+        "[img=utility/custom_tag_icon] Team Settings - rename your team (leader only)\n" ..
+        "[img=virtual-signal/signal-info] About - this screen, reopen anytime"
     )
     section(
         "Landing Pen",
-        "New players wait in the Landing Pen until they are ready to spawn. " ..
-        "You can also buddy-up with a friend to start on the same planet."
+        "New players wait in the Landing Pen until they are ready to " ..
+        "spawn. Start a new team, or request to join an existing one — " ..
+        "the team leader accepts."
     )
 end
 
