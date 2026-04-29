@@ -9,6 +9,10 @@
 --   /mts-kick     - kick a player from your team (prompts for confirmation)
 --   /mts-rename   - rename your team (team leader only)
 --   /mts-disband  - disband a team and free the slot (admin only)
+--   /mts-pause    - pause a team's entities (admin only)
+--   /mts-resume   - resume a team's entities (admin only)
+--   /mts-trim     - trim unused chunks on team nauvis surfaces (admin only)
+--   /mts-replay   - retroactively replay surface/chunk events for newly-installed mods (admin only)
 
 local teams_gui     = require("gui.teams")
 local helpers       = require("scripts.helpers")
@@ -19,6 +23,7 @@ local confirm       = require("gui.confirm")
 local awards_gui    = require("gui.awards")
 local force_pause   = require("scripts.force_pause")
 local chunk_trim    = require("scripts.chunk_trim")
+local event_replay  = require("scripts.event_replay")
 
 local commands_mod = {}
 
@@ -498,6 +503,30 @@ function commands_mod.register()
 
         caller.print(("Chunk trim queued for %d surface(s). Processing one surface every ~0.5s.")
             :format(count))
+    end)
+
+    commands.add_command("mts-replay", "Re-fire surface/chunk events on team surfaces so a newly-installed mod can apply its setup retroactively (admin only). Usage: /mts-replay [--chunks]", function(cmd)
+        local caller = cmd.player_index and game.get_player(cmd.player_index)
+        if not caller then
+            game.print("This command can only be used by a player.")
+            return
+        end
+        if not caller.admin then
+            caller.print("Only admins can run event replay.")
+            return
+        end
+
+        local with_chunks = false
+        for tok in (cmd.parameter or ""):gmatch("%S+") do
+            if tok == "--chunks" then with_chunks = true end
+        end
+
+        local stats = event_replay.replay_all({chunks = with_chunks})
+        caller.print(("Replayed lifecycle on %d team surface(s)%s.")
+            :format(stats.surfaces,
+                    with_chunks
+                        and (", plus " .. stats.chunks .. " chunk events")
+                        or ""))
     end)
 end
 
