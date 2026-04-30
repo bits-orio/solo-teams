@@ -1,4 +1,21 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.2
+Date: 2026-04-29
+  Changes:
+    - docs/COMPAT.md restructured around the clone_mirror default.
+      The old four-layer framing gave each option equal weight; in
+      practice clone_mirror handles the bulk of cases automatically
+      and the rest are runtime gameplay rules that need narrower
+      fixes. Three ranked options for mod authors are now spelled
+      out: surface.planet.name predicate (smallest, generic), expose
+      runtime rules as remote.add_interface functions (closed-
+      source-friendly, multi-surface-mod-friendly), and mts-v1
+      event subscription (MTS-coupled). The "expose runtime rules
+      as remote functions" path is new — it wasn't called out
+      before and is the cleanest answer for closed-source authors
+      who'd rather not couple to MTS specifically.
+
+---------------------------------------------------------------------------------------------------
 Version: 0.4.1
 Date: 2026-04-29
   Features:
