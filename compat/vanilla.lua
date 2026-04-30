@@ -36,7 +36,21 @@ function vanilla.setup_player_surface(player)
     compat_utils.setup_player_surface(player, function(surf_name, planet)
         local nauvis = game.surfaces[planet]
         local mgs    = nauvis and nauvis.map_gen_settings or {}
-        return game.create_surface(surf_name, mgs)
+        local surface = game.create_surface(surf_name, mgs)
+
+        -- Pre-generate spawn-area chunks BEFORE the player teleports.
+        -- clone_mirror.on_chunk_generated runs synchronously here for
+        -- each generated chunk and calls LuaSurface.clone_area, which
+        -- overwrites destination contents — including any character
+        -- entity at the player's position. Doing the work up front
+        -- means clone_area runs on an empty surface, so the player's
+        -- character (placed during the deferred teleport on the next
+        -- tick) lands on already-cloned terrain instead of being
+        -- evicted by an in-flight clone.
+        surface.request_to_generate_chunks({0, 0}, 3)
+        surface.force_generate_chunk_requests()
+
+        return surface
     end)
 end
 

@@ -22,7 +22,7 @@ local platformer      = require("compat.platformer")
 local vanilla         = require("compat.vanilla")
 local voidblock       = require("compat.voidblock")
 local dangoreus       = require("compat.dangoreus")
-local gridlocked      = require("compat.gridlocked")
+local clone_mirror    = require("compat.clone_mirror")
 local friendship      = require("gui.friendship")
 local tech_records    = require("scripts.tech_records")
 local milestones      = require("milestones.engine")
@@ -97,9 +97,15 @@ end
 local function init_events()
     script.on_event(defines.events.on_chunk_generated, function(event)
         landing_pen.on_chunk_generated(event)
-        if voidblock.is_active() then
-            voidblock.on_chunk_generated(event)
-        end
+        -- Generic terrain mirror: drives nauvis chunk generation (which
+        -- fires every third-party mod's handler against nauvis) and
+        -- clones the result onto team surfaces. Replaces what used to
+        -- be voidblock.on_chunk_generated and dangoreus's pattern code.
+        clone_mirror.on_chunk_generated(event)
+        -- dangOreus post-step: places a deepwater hole near origin so
+        -- offshore pumps work even when dangOreus's starting-radius is
+        -- shrunk below the vanilla starter lake. Runs AFTER clone_mirror
+        -- so it overwrites any cloned ore at the pump location.
         if dangoreus.is_active() then
             dangoreus.on_chunk_generated(event)
         end
@@ -123,10 +129,6 @@ local function init_events()
             -- the "space map" button to vanish every time a space platform
             -- is built.
             planet_map.hide_base_planets_for_all()
-            -- dangOreus: build resource_table for new team surfaces.
-            if dangoreus.is_active() then
-                dangoreus.setup_surface(surface)
-            end
         end
     end)
 
@@ -408,9 +410,6 @@ script.on_event(defines.events.on_player_changed_force, function(event)
         if player.gui.screen.sb_team_settings_frame then
             team_settings.build_gui(player)
         end
-        -- Stopgap: Gridlocked's HUD doesn't refresh on force change.
-        -- See compat/gridlocked.lua.
-        gridlocked.refresh_hud(player)
     end
 end)
 

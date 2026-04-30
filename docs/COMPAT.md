@@ -14,6 +14,27 @@ That filter rejects every team surface. The mod's logic only runs on the literal
 
 There is no single trick that makes every such mod multi-surface aware. MTS uses three layers of strategy, ranked by how little work they require from third-party authors.
 
+## Layer 0: Zero-cooperation — terrain mirror
+
+**Cost to other authors: nothing.** They don't need to know MTS exists. This is the default for terrain decorators.
+
+For any third-party mod that decorates the real `nauvis` surface via `on_chunk_generated` and filters by hardcoded surface name, MTS automatically mirrors the result onto every team surface. The mechanism lives in [`compat/clone_mirror.lua`](../compat/clone_mirror.lua):
+
+1. When a chunk is generated on `team-N-nauvis` (or `mts-nauvis-N`), MTS ensures the same chunk is generated on the real `nauvis` surface.
+2. That synchronously fires every third-party mod's `on_chunk_generated` handler against `nauvis`, where their `surface.name == "nauvis"` filters accept.
+3. MTS clones the resulting tiles + entities + decoratives from `nauvis` to the team surface via `LuaSurface.clone_area`.
+
+Net effect: whatever the mod stack puts on `nauvis`, every team surface gets the same. Verified working with **dangOreus**, **VoidBlock**, **Alien Biomes**, and any mod that follows the same pattern.
+
+Trade-off: every team gets the **same** map. Per-team randomization (different ore patterns per team) is sacrificed for "no per-mod compat code." For competitive race servers where fairness matters this is usually a feature; for variety-driven servers it's a regression.
+
+The "same map" observation extends to vanilla worldgen too — all teams see the same iron/copper/coal positions, biome layouts, biter base placements, etc., because everything is cloned from a single `nauvis` source-of-truth.
+
+When per-mod compat is still needed:
+- **Runtime gameplay rules** that fire after chunk generation (e.g. dangOreus's "block non-miners on ore" handler) still need a small per-mod shim because the mod's runtime handlers also filter by name. Those shims live in `compat/<modname>.lua` and are typically 100–200 lines of just-the-rules.
+- **Surface creation parameters** (e.g. VoidBlock disabling autoplace to skip vanilla worldgen that would be overwritten by clone) are set by the per-mod shim's `setup_player_surface`.
+- **Discoverability or HUD glitches** (e.g. Gridlocked's stale chunk-points label after force change) are fixed by the per-mod shim's hooks.
+
 ## Layer 1: Zero-cooperation — event replay
 
 **Cost to other authors: nothing.** They don't need to know MTS exists.

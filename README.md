@@ -52,8 +52,9 @@ Join the Discord: **https://discord.gg/tWz4FT74pH**
 
 - Requires **Factorio 2.0** (`base >= 2.0`)
 - **Space Age** — optional; auto-detected and enables per-team planets + space connections when present
-- Compatible with [Platformer](https://mods.factorio.com/mod/platformer) and [VoidBlock](https://mods.factorio.com/mod/VoidBlock)
-- **dangOreus** — optional; when loaded, dangOreus's ore-flooding behavior (all modes: pie, random, voronoi, perlin, spiral) is applied to each team's nauvis surface instead of just the shared default. The default nauvis is disabled for dangOreus since no team plays there.
+- Compatible with [Platformer](https://mods.factorio.com/mod/platformer)
+- **Generic terrain mirror** — any third-party mod that decorates Nauvis via `on_chunk_generated` (and filters by hardcoded surface name) is automatically mirrored onto every team surface. The mod's handler runs once on the real Nauvis; MTS clones the resulting tiles, entities, and decoratives to each team's nauvis variant. Verified working with [dangOreus](https://mods.factorio.com/mod/dangOreus), [VoidBlock](https://mods.factorio.com/mod/VoidBlock), [Alien Biomes](https://mods.factorio.com/mod/alien-biomes), and content mods like [Periodic Madness](https://mods.factorio.com/mod/periodic-madness). Trade-off: every team gets the same map (per-team randomization is sacrificed for zero-cooperation compat). See [`docs/COMPAT.md`](docs/COMPAT.md) for details.
+- **dangOreus** — beyond the terrain mirror, MTS also reproduces dangOreus's runtime gameplay rules (block non-miners on ore tiles, spill containers on death, floor-is-lava damage) on team surfaces.
 - Factorio supports up to 64 forces (20 teams + built-ins leaves plenty of headroom)
 
 ## 🔌 For Mod Authors

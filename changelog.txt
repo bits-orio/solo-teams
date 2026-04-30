@@ -1,4 +1,49 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.1
+Date: 2026-04-29
+  Features:
+    - Generic terrain compatibility via compat/clone_mirror.lua. Any
+      third-party mod that decorates the real "nauvis" surface via
+      on_chunk_generated and filters by hardcoded surface name is
+      now automatically mirrored onto every team surface. The mod's
+      handler runs once on nauvis; MTS clones the resulting tiles,
+      entities, and decoratives to each team-N-nauvis (or
+      mts-nauvis-N) variant. Verified with dangOreus, VoidBlock,
+      Alien Biomes, Periodic Madness, and the vanilla worldgen
+      stack. New mods that follow the same pattern work
+      automatically with no per-mod compat code.
+  Changes:
+    - Every team gets the same map by design. A single nauvis
+      source-of-truth is decorated by the mod stack, then cloned
+      to all team surfaces. Per-team randomization (different ore
+      patterns or biome layouts per team) is replaced with
+      consistent terrain across teams. Suits competitive race
+      formats; if you needed per-team variety this is a regression.
+    - dangOreus compat shim drops ~400 lines of re-implemented
+      perlin / voronoi / pie / spiral pattern code in favor of
+      cloning. Runtime gameplay rules (block non-miners on ore,
+      container spillage, floor-is-lava) are preserved as a thin
+      ~150-line per-mod shim. dangOreus is now re-enabled on real
+      nauvis (it was previously toggled off) so its chunk-gen
+      output exists to clone from.
+    - VoidBlock compat shim drops the entire on_chunk_generated
+      body and the PLANETS / get_planet_config helpers. Surface
+      creation with autoplace disabled stays, since it saves
+      cloning over wasted vanilla worldgen.
+    - vanilla compat now pre-generates spawn-area chunks before
+      teleporting the player. Without pre-gen, clone_area would
+      run on the chunk containing the player's character and
+      overwrite it, dropping the player into god-controller mode.
+  Removed:
+    - compat/gridlocked.lua. The HUD-refresh stopgap and the
+      voidblock pre-claim are gone. Gridlocked still partially
+      works alongside MTS (its handlers don't filter by surface
+      name) but the stale HUD label after force change, the
+      voidblock + gridlocked landfill deadlock, and the
+      recent_claims save crash on team-slot release are
+      unaddressed pending upstream fixes.
+
+---------------------------------------------------------------------------------------------------
 Version: 0.4.0
 Date: 2026-04-29
   Features:
