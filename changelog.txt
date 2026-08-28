@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.1
+Date: 2026-08-27
+  Bugfixes:
+    - Sea Block compat: repaired eight recipes that require nickel plate, an item nothing in the
+      pack can produce -- Boiler 3, Fluid Burning Boiler 2, Burner Heat Source 2, Fluid Burning
+      Heat Source 2, Heat Pipe 2, Heat Exchanger 2, Roboport Antenna 2 and Roboport Chargepad 2.
+      All eight were researchable and permanently uncraftable, and between them they gate roughly
+      forty further items: the nuclear reactor, every boiler and heat exchanger tier above 2, and
+      every roboport, robochest, logistic zone expander and personal roboport tier above 1. The
+      ingredient substitutions match the upstream fix exactly (SeaBlock issue #375), so a future
+      Sea Block Continued release will agree on balance. Applies only when Sea Block Continued is
+      installed, and becomes a no-op once that release lands.
+---------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 Version: 0.6.0
 Date: 2026-08-21
   Features:

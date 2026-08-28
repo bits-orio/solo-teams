@@ -16,6 +16,13 @@ if mods["belt-ban"] then
     require("prototypes.compat.belt_ban")
 end
 
+-- Sea Block compat: repair the eight recipes that require bob-nickel-plate, which
+-- nothing in the pack can produce. TEMPORARY -- delete once Sea Block Continued
+-- ships the upstream fix (see the file header).
+if mods["SeaBlockContinued"] then
+    require("prototypes.compat.seablock_nickel")
+end
+
 -- Passivize radars (drop their map-charting sector scan, keep local reveal) so
 -- 20 teams' radars don't bloat the save. Independent of Space Age; self-gates
 -- on the mts_passive_radars startup setting. Runs here to catch mod radars too.
