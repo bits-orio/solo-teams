@@ -1,7 +1,5 @@
 # 🏭 Multi-Team Support
 
-> **Same start. Different finish.**
-
 A Factorio 2.0 mod for cooperative and competitive multiplayer where each team races on their own copy of the world. Research independently, compare progress, watch your rivals, form alliances — all from one server.
 
 > **Inspired by OARC.** Multi-Team Support carries the same many-players-one-server spirit as the OARC separated-spawns mods, reimagined for Factorio 2.0 with a full per-team copy of the world.

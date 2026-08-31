@@ -1,6 +1,6 @@
 # Multi-Team Support
 
-> Same start. Different finish.
+> One server. One seed. A private world for every team.
 
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/tWz4FT74pH) [![GitHub](https://img.shields.io/badge/GitHub-source-181717?logo=github&logoColor=white)](https://github.com/bits-orio/multi-team-support)
 
