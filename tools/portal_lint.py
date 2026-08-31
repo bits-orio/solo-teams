@@ -54,6 +54,13 @@ def main():
     if "![](<>)" in desc:
         errors.append("empty image tag ![](<>) present")
 
+    # Every page in the family carries the same two badges, so a reader landing
+    # on any mod finds the repo and the community in the same place.
+    if "img.shields.io/badge/Discord" not in desc:
+        errors.append("missing the Discord badge")
+    if "img.shields.io/badge/GitHub" not in desc:
+        errors.append("missing the GitHub badge")
+
     found = EMOJI.findall(desc)
     if len(found) > EMOJI_CAP:
         errors.append(f"{len(found)} emoji, cap is {EMOJI_CAP}: {''.join(found[:10])}")
@@ -74,8 +81,13 @@ def main():
         errors.append("category is no-category — every mod must have a real one")
 
     tags = meta.get("tags") or []
-    if not tags:
-        errors.append("tag list is empty — the mod is invisible to every tag filter")
+    waiver = meta.get("tags_intentionally_empty")
+    if not tags and not waiver:
+        errors.append("tag list is empty — the mod is invisible to every tag filter. "
+                      "If no tag in the vocabulary is honestly true, say so explicitly "
+                      "in a tags_intentionally_empty field.")
+    if tags and waiver:
+        errors.append("tags_intentionally_empty is set but tags are present — drop one")
     for tag in tags:
         if tag not in TAGS:
             errors.append(f"tag {tag!r} is not in the live portal vocabulary")
