@@ -61,14 +61,6 @@ local function draw_about(parent)
         txt.style.font_color               = {r = 0.9, g = 0.9, b = 0.9}
     end
 
-    -- Tagline
-    local tagline = scroll.add{type = "label",
-        caption = {"mts-gui.welcome-tagline"}}
-    tagline.style.font       = "default-large-semibold"
-    tagline.style.font_color = {r = 0.6, g = 0.8, b = 1}
-    tagline.style.top_margin = 4
-    tagline.style.bottom_margin = 6
-
     section({"mts-gui.welcome-what-title"},      {"mts-gui.welcome-what-body"})
     section({"mts-gui.welcome-diplomacy-title"}, {"mts-gui.welcome-diplomacy-body"})
     if space_age.is_active() then

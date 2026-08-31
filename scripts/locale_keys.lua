@@ -364,7 +364,6 @@ return {
     "mts-gui.welcome-space-age-title",
     "mts-gui.welcome-tab-about",
     "mts-gui.welcome-tab-discord",
-    "mts-gui.welcome-tagline",
     "mts-gui.welcome-title",
     "mts-gui.welcome-what-body",
     "mts-gui.welcome-what-title",
