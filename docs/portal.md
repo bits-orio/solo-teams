@@ -15,7 +15,7 @@ In active use on public servers. Team cap is 20 with Space Age, where each team 
 ## Quick start
 
 1. Install on the server and start a new save.
-2. Set the team count in Settings → Startup (default 20).
+2. Set the team count in Settings → Startup (defaults to 20 with Space Age, 60 without).
 3. Players arrive in a shared landing pen instead of spawning immediately.
 4. Each picks "Start a new team" or "Request to join" an existing one.
 5. Surfaces, research and team clocks are created automatically from there.

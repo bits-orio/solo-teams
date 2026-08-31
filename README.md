@@ -13,7 +13,7 @@ Join the Discord: https://discord.gg/tWz4FT74pH
 ## ✨ Features
 
 ### Teams
-- 🧑‍🚀 **Numbered team pool** — Forces pre-created as `team-1` through `team-N` (configurable via startup setting, default 20). Team names are display-only and can be renamed via `/mts-rename` or the Teams panel.
+- 🧑‍🚀 **Numbered team pool** — Forces pre-created as `team-1` through `team-N` (configurable via startup setting, default 20 with Space Age, 60 without). Team names are display-only and can be renamed via `/mts-rename` or the Teams panel.
 - 👥 **Multi-player teams** — Buddy join lets multiple players share a team. Leader can kick and accept join requests; any member can leave.
 - 🎨 **Force colors** — Always derived from the current team leader's player color.
 - 🤝 **Friendship** — Two-sided requests between teams; mutual friendship shares chart and grants friend-view spectation.
