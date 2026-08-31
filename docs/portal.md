@@ -4,13 +4,13 @@
 
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/tWz4FT74pH) [![GitHub](https://img.shields.io/badge/GitHub-source-181717?logo=github&logoColor=white)](https://github.com/bits-orio/multi-team-support)
 
-One server, many teams, and every team gets its own private copy of the same map. Same seed, same resource layout, no competition for tiles. Bring a friend onto your team and build together, or give them a team of their own and race them from an identical start — both work, and you choose per player.
+One server, many teams, and every team gets its own private copy of the same map. Same seed, same resource layout, no competition for tiles. Bring a friend onto your team and build together, or give them a team of their own and race them from an identical start. Both work, and you choose per player.
 
 It carries the spirit of the OARC separated-spawns mods, rebuilt from scratch for Factorio 2.0 around a full per-team copy of the world rather than a carved-out region of one shared map.
 
 ## Status
 
-In active use on public servers. Team cap is 20 with Space Age, where each team gets a whole solar system, and 60 without. One deliberate trade-off: every team plays the same terrain, because giving up per-team map randomization is what buys automatic compatibility with terrain mods. Localized per player into English, Spanish, Russian and German, so mixed-language servers just work.
+In active use on public servers. Team cap is 20 with Space Age, where each team gets a whole solar system, and 60 without. Every team plays the same terrain by design: one world generation, mirrored to every team surface. That is what lets terrain mods decorate all of them without cooperating with MTS, and what puts every team on an identical map when they race. Localized per player into English, Spanish, Russian and German, so mixed-language servers just work.
 
 ## Quick start
 
@@ -47,11 +47,11 @@ Mod authors: Multi-Team Support exposes a versioned `mts-v1` remote interface an
 
 ## Works with
 
-- [Diggy](https://mods.factorio.com/mod/diggy) — dig a factory out of solid rock; each team gets its own cave system.
-- [Brave New MTS](https://mods.factorio.com/mod/brave-new-mts) — remote-only, character-free play built on top of MTS.
-- [MTS Dimension Warp](https://mods.factorio.com/mod/mts-dimension-warp) — every team warps its own base through its own sequence of dimensions.
-- [Land Title Registry](https://mods.factorio.com/mod/land-title-registry) — earn buildable land cell by cell, per team.
-- [Open Discord Bridge](https://mods.factorio.com/mod/open-discord-bridge) — relay team events and chat to Discord.
+- [Diggy](https://mods.factorio.com/mod/diggy): dig a factory out of solid rock. Each team gets its own cave system.
+- [Brave New MTS](https://mods.factorio.com/mod/brave-new-mts) adds remote-only, character-free play on top of MTS.
+- [MTS Dimension Warp](https://mods.factorio.com/mod/mts-dimension-warp) warps every team's base through its own sequence of dimensions.
+- [Land Title Registry](https://mods.factorio.com/mod/land-title-registry) makes each team earn its buildable land cell by cell.
+- [Open Discord Bridge](https://mods.factorio.com/mod/open-discord-bridge) relays team events and chat to Discord.
 
 ## Links
 
