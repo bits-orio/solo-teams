@@ -1,6 +1,6 @@
 -- Multi-Team Support - records.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Shared first/fastest record tracking for any keyed event.
 -- Used by tech_records (per technology) and milestones (per category:item:threshold).

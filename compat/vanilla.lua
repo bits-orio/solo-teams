@@ -1,6 +1,6 @@
 -- Multi-Team Support - vanilla_compat.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Support for vanilla-style games (no Platformer mod) where each player
 -- spawns on their own fresh copy of the Nauvis surface generated from the

@@ -1,6 +1,6 @@
 -- Multi-Team Support - nav.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Thin wrapper around player.gui.top that provides a shared top-bar button
 -- strip and a central click-handler registry.  Every GUI module registers its

@@ -1,6 +1,6 @@
 -- Multi-Team Support - surface_utils.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Surface ownership queries, visibility management, and chart cleanup.
 -- Extracted from spectator.lua — these are surface-level concerns, not

@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/team_modifiers.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Per-team gameplay modifiers ("team modifiers"), gated behind the
 -- non_competitive_enabled admin flag. MTS is competitive by default — every

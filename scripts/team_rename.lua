@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/team_rename.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Single source of truth for the team-rename rule, shared by the /mts-rename
 -- command (scripts/commands/team.lua) and the Team Settings GUI

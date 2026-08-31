@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/chat_tag.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Per-message channel badge, stamped onto player.tag.
 --

@@ -1,6 +1,6 @@
 -- Multi-Team Support - compat/gridlocked.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Compatibility with Gridlocked by _CodeGreen.
 -- https://mods.factorio.com/mod/gridlocked

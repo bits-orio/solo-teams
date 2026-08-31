@@ -1,6 +1,6 @@
 -- Multi-Team Support - compat/reassign_player_force.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Generic fix for naturally-generated structures stuck on force="player"
 -- on team surfaces. Observed cases:

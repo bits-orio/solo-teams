@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/chat_channel.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Chat privacy channel: "global" (default) or "local" (team-only).
 --

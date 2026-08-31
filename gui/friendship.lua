@@ -1,6 +1,6 @@
 -- Multi-Team Support - friendship.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Friend toggle logic extracted from surfaces_gui.lua.
 -- Mutual friendship semantics: both sides must agree before it

@@ -1,6 +1,6 @@
 -- Multi-Team Support - gui/pen_info_panel.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- An admin-editable info panel in the dead center of the landing pen. The host
 -- edits its text from the Admin panel's "Run Info" tab to describe each run

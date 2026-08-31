@@ -1,6 +1,6 @@
 -- Multi-Team Support - prototypes/entities/passive-radar.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- A hidden, powerless passive radar that other MTS-aware mods place (via the
 -- mts-v1 `ensure_passive_radar` interface) to keep a team surface live-viewable

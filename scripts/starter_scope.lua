@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/starter_scope.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Per-item scope for the starter-items list.
 --

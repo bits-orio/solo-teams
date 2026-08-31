@@ -1,6 +1,6 @@
 -- Multi-Team Support - prototypes/entities/passivize-radars.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Turns every "scanning" radar into a passive one: it keeps the local ring it
 -- always reveals while working (max_distance_of_nearby_sector_revealed) but no

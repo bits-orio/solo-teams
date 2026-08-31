@@ -1,6 +1,6 @@
 -- Multi-Team Support - gui/chat_switch.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Center-top two-segment chat mode switch: GLOBAL | TEAM. Both segments are
 -- always visible; the lit one is the current channel — the team's, or the

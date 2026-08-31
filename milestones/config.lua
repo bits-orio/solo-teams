@@ -1,6 +1,6 @@
 -- Multi-Team Support - milestones/config.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Milestone tracker configuration. Edit this file to add or modify
 -- tracked categories, thresholds, and item discovery logic.

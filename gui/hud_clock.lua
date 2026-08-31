@@ -1,6 +1,6 @@
 -- Multi-Team Support - gui/hud_clock.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Persistent top-bar team chip — "TeamName | 1h 44m 46s" in a framed one-line
 -- row right of the nav buttons — plus ownership of the center-top chat switch

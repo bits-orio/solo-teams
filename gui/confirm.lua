@@ -1,6 +1,6 @@
 -- Multi-Team Support - gui/confirm.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Reusable confirmation dialog with Confirm/Cancel buttons.
 -- title/message/confirm_text/cancel_text may be plain strings or

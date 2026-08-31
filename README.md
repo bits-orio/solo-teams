@@ -100,4 +100,4 @@ The interface name is versioned (`mts-v1`); breaking changes will ship as a para
 
 ## 📄 License
 
-[GNU GPL v3](LICENSE)
+[MIT](LICENSE)

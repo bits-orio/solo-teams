@@ -1,6 +1,6 @@
 -- Multi-Team Support - data-final-fixes.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Space Age integration: per-team planet variants and space connections.
 -- Loaded at data-final-fixes so we see all base planets/connections from

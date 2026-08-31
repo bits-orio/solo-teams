@@ -1,6 +1,6 @@
 -- Multi-Team Support - settings.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Startup settings for the mod. These are configured before the game starts
 -- and cannot be changed during gameplay.

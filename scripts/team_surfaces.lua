@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/team_surfaces.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- create / retire an EPHEMERAL, caller-seeded surface for a team, for the
 -- mts-v1 API (warp-style consumers like MTS Dimension Warp).

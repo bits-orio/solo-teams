@@ -1,6 +1,6 @@
 -- Multi-Team Support - compat/mts_dimension_warp.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Support for the MTS Dimension Warp (MDW) mod. Each team spawns DIRECTLY on
 -- its own neo-nauvis platform world as warp #0 -- never on nauvis. neo-nauvis

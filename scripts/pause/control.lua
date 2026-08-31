@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/pause/control.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Orchestrates a full team pause / unpause for the mts-v1 API.
 --

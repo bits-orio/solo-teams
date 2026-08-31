@@ -1,6 +1,6 @@
 -- Multi-Team Support - awards.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Togglable "Team Awards" window. Shows leaderboards (top 3) for completed
 -- achievements, grouped into three sections: Research, Science, Resources.

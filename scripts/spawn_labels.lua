@@ -1,6 +1,6 @@
 -- Multi-Team Support - spawn_labels.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Renders a "<team_tag_with_leader>'s\n<location_name>" label (plus a
 -- minute-resolution birth-clock line once the team's clock starts) at the

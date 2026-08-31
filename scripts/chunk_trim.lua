@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/chunk_trim.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Admin tool: trim unused chunks on team surfaces (every planet a team owns,
 -- not just nauvis). For each surface, preserves a buffer of chunks around team

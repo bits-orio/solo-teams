@@ -1,6 +1,6 @@
 -- Multi-Team Support - compat/seablock.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Sea Block hands EVERY player a full bulk kit (2000 landfill, 1200 iron plate,
 -- solar panels, ...) from its own on_player_created. Under MTS that means a

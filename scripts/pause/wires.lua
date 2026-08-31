@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/pause/wires.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- The VISUAL half of a team pause: record and physically cut the team's
 -- pole-to-pole copper wires so a paused base reads as "unplugged" at a glance,

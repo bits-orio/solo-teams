@@ -1,6 +1,6 @@
 -- Multi-Team Support - prototypes/compat/seablock_nickel.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- TEMPORARY. Remove once Sea Block Continued ships the upstream fix.
 --

@@ -1,6 +1,6 @@
 -- Multi-Team Support - debug.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Admin-only debug task engine. Runs a queue of scheduled one-shot
 -- actions across future ticks. Powers the /mts-debug console command.
