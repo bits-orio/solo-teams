@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.2
+Date: 2026-08-31
+  Info:
+    - Relicensed from GPL-3.0-or-later back to MIT, the licence this mod shipped under before
+      0.4.43. LICENSE and all 62 source-file headers are updated. The mod portal's licence field
+      had never been changed away from MIT, so the three now agree again.
+  Changes:
+    - Retired the "Same start. Different finish." tagline. It is gone from the welcome screen, the
+      mod description, and the mod-description string in English, Spanish, Russian and German. The
+      welcome screen now opens straight into its sections.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.1
 Date: 2026-08-27
   Bugfixes:
