@@ -1,7 +1,12 @@
 {
+  "mod": "multi-team-support",
+  "title": "Multi-Team Support",
   "summary": "One Factorio server, many teams, each on its own private copy of the map. Same seed, separate research, zero resource conflicts. Race a friend from an identical spawn, or put them on your team. Co-op multiplayer in the spirit of OARC.",
   "category": "utilities",
-  "tags": ["environment", "planets"],
+  "tags": [
+    "environment",
+    "planets"
+  ],
   "license": "default_mit",
   "homepage": "https://discord.gg/tWz4FT74pH",
   "source_url": "https://github.com/bits-orio/multi-team-support"
