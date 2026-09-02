@@ -849,13 +849,19 @@ do
     eq("member: days", gone.caption[2], 2)
     eq("member: hours", gone.caption[3], 5)
     check("member: coloured dead after two days", gone.color == require("scripts.activity").COLOR_DEAD)
-    check("member: carries a tooltip line", gone.tooltip ~= nil)
+    eq("tooltip: is the rich member card", gone.tooltip[1], "mts-tip.member-card")
+    eq("tooltip: offline status names the last-seen key",
+        gone.tooltip[3][3][1], "mts-tip.member-status-offline")
+    eq("tooltip: status line is wrapped in the age colour",
+        gone.tooltip[3][2], "[color=#ff6666]")
     eq("member: 48 hours reads as whole hours", gone.played_caption[3][1], "time-symbol-hours-short")
     eq("member: hour count", gone.played_caption[3][2], 48)
     eq("member: offline row separates with a dot", gone.played_caption[2], " · ")
 
     local here = td.ls_member_activity(game.get_player(2))
     check("member: connected member has no ago caption", here.caption == nil)
+    eq("tooltip: online status", here.tooltip[3][3][1], "mts-tip.member-status-online")
+    eq("tooltip: online status is green", here.tooltip[3][2], "[color=#66ff66]")
     eq("member: but shows playtime in minutes under an hour",
         here.played_caption[3][1], "time-symbol-minutes-short")
     eq("member: minute count", here.played_caption[3][2], 35)
@@ -863,6 +869,7 @@ do
 
     local never = td.ls_member_activity(game.get_player(3))
     eq("member: never-seen caption", never.caption[1], "mts-tip.seen-never")
+    eq("tooltip: never-seen status", never.tooltip[3][3][1], "mts-tip.member-status-never")
     eq("member: zero playtime reads under a minute",
         never.played_caption[3][1], "mts-gui.playtime-under-minute")
 end

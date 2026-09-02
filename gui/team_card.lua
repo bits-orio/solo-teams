@@ -102,7 +102,11 @@ local function add_member_row(parent, member, is_leader_of_team, viewer, viewer_
         star_cell.style.font_color = {1, 0.8, 0}
     end
 
-    local name_lbl = row.add{type = "label", caption = member.name}
+    -- One rich tooltip for the whole row: name, dot, last-seen and playtime
+    -- all carry it, since a child label never inherits its parent's tooltip.
+    local seen = teams_data.ls_member_activity(member)
+    local name_lbl = row.add{type = "label", name = "sb_member_name",
+        caption = member.name, tooltip = seen.tooltip}
     name_lbl.style.font_color = member.chat_color
 
     if member.index ~= viewer.index then
@@ -118,13 +122,14 @@ local function add_member_row(parent, member, is_leader_of_team, viewer, viewer_
         cam_btn.style.left_margin = 4
     end
 
-    local seen = teams_data.ls_member_activity(member)
     if member.connected then
-        local dot = row.add{type = "label", caption = "  \xE2\x97\x8F"}
+        local dot = row.add{type = "label", name = "sb_member_dot",
+            caption = "  \xE2\x97\x8F", tooltip = seen.tooltip}
         dot.style.font_color  = {0.4, 0.9, 0.4}
         dot.style.left_margin = 4
     else
-        local dot = row.add{type = "label", caption = "  \xE2\x97\x8B"}
+        local dot = row.add{type = "label", name = "sb_member_dot",
+            caption = "  \xE2\x97\x8B", tooltip = seen.tooltip}
         dot.style.font_color  = {0.55, 0.55, 0.55}
         dot.style.left_margin = 4
         -- How long this member has been gone, right next to the name and
@@ -138,7 +143,7 @@ local function add_member_row(parent, member, is_leader_of_team, viewer, viewer_
     -- Time online sits beside last-seen on every row, so the two facts that
     -- decide a kick are read together: "5d ago · 48h" is not "5d ago · 20m".
     local played = row.add{type = "label", name = "sb_member_played",
-        caption = seen.played_caption, tooltip = {"mts-tip.member-playtime"}}
+        caption = seen.played_caption, tooltip = seen.tooltip}
     played.style.font       = "default-small"
     played.style.font_color = {0.7, 0.7, 0.7}
 
@@ -313,15 +318,22 @@ function M.update_activity_labels_all()
                 end
                 for idx, seen in pairs(data.members or {}) do
                     local row = card["sb_member_row_" .. idx]
-                    local ago = row and row.valid and row.sb_member_ago
-                    if ago and ago.valid then
-                        ago.caption          = seen.caption
-                        ago.style.font_color = seen.color
-                        ago.tooltip          = seen.tooltip
+                    if row and row.valid then
+                        local ago = row.sb_member_ago
+                        if ago and ago.valid then
+                            ago.caption          = seen.caption
+                            ago.style.font_color = seen.color
+                        end
+                        -- Online members' playtime keeps ticking up.
+                        local played = row.sb_member_played
+                        if played and played.valid then played.caption = seen.played_caption end
+                        -- The shared tooltip ages on every element that carries it.
+                        for _, child in ipairs({"sb_member_name", "sb_member_dot",
+                                                "sb_member_ago", "sb_member_played"}) do
+                            local el = row[child]
+                            if el and el.valid then el.tooltip = seen.tooltip end
+                        end
                     end
-                    -- Online members' playtime keeps ticking up.
-                    local played = row and row.valid and row.sb_member_played
-                    if played and played.valid then played.caption = seen.played_caption end
                 end
             end
         end

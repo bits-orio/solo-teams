@@ -240,13 +240,37 @@ M.team_last_active_tick = team_last_active_tick
 
 -- Rich-text member name in the member's chat colour, shared by both tooltip
 -- builders below.
-local function member_rich_name(p)
-    local c = p.chat_color
-    local hex = string.format("#%02x%02x%02x",
+local function color_hex(c)
+    return string.format("#%02x%02x%02x",
         math.floor((c.r or c[1] or 0) * 255),
         math.floor((c.g or c[2] or 0) * 255),
         math.floor((c.b or c[3] or 0) * 255))
-    return "[color=" .. hex .. "]" .. p.name .. "[/color]"
+end
+
+local function member_rich_name(p)
+    return "[color=" .. color_hex(p.chat_color) .. "]" .. p.name .. "[/color]"
+end
+
+--- The member row's tooltip: a small card rather than a sentence.
+---   bold name in the member's chat colour
+---   status line, coloured by age: "○ Last seen 5d 2h ago" / "● Online now"
+---   total time online, in full ("48h 12m")
+---   dim caveat that idle time counts
+--- Rich-text tags are parsed on the final rendered string, so a colour tag
+--- may open in one concatenated part and close in another.
+local function ls_member_tooltip(p, ago, color)
+    local status
+    if p.connected then
+        status = {"mts-tip.member-status-online"}
+    elseif ago then
+        status = {"mts-tip.member-status-offline", ls_fmt_ago(ago)}
+    else
+        status = {"mts-tip.member-status-never"}
+    end
+    return {"mts-tip.member-card",
+        member_rich_name(p),
+        {"", "[color=" .. color_hex(color) .. "]", status, "[/color]"},
+        ls_fmt_playtime(p.online_time or 0)}
 end
 
 local function build_activity_tooltip(member_list)
@@ -311,10 +335,12 @@ function M.ls_member_activity(player)
         ago     = activity.offline_ticks(player)
         caption = ago and ls_fmt_ago(ago) or {"mts-tip.seen-never"}
     end
+    local color = player.connected and activity.COLOR_FRESH
+        or (ago and activity.age_color(ago) or activity.COLOR_UNKNOWN)
     return {
         caption        = caption,
-        color          = ago and activity.age_color(ago) or activity.COLOR_UNKNOWN,
-        tooltip        = ls_member_line(player),
+        color          = color,
+        tooltip        = ls_member_tooltip(player, ago, color),
         played_caption = {"", player.connected and " " or " · ",
                           ls_fmt_playtime_short(player.online_time or 0)},
     }
