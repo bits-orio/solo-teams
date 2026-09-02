@@ -89,7 +89,8 @@ local function add_card_modifiers(card, force_name)
 end
 
 local function add_member_row(parent, member, is_leader_of_team, viewer, viewer_force_name, target_force, target_force_name, is_own_team)
-    local row = parent.add{type = "flow", direction = "horizontal"}
+    local row = parent.add{type = "flow", direction = "horizontal",
+        name = "sb_member_row_" .. member.index}
     row.style.vertical_align = "center"
 
     -- Fixed-width column for the leader star so names in a card align
@@ -125,9 +126,14 @@ local function add_member_row(parent, member, is_leader_of_team, viewer, viewer_
         local dot = row.add{type = "label", caption = "  \xE2\x97\x8B"}
         dot.style.font_color  = {0.55, 0.55, 0.55}
         dot.style.left_margin = 4
-        local off = row.add{type = "label", caption = {"mts-gui.offline-suffix"}}
-        off.style.font       = "default-small"
-        off.style.font_color = {0.55, 0.55, 0.55}
+        -- How long this member has been gone, right next to the name and
+        -- coloured by age, so anyone on the team can see who stopped showing
+        -- up. The hollow dot already says offline; the time says how long.
+        local seen = teams_data.ls_member_activity(member)
+        local ago  = row.add{type = "label", name = "sb_member_ago",
+            caption = seen.caption, tooltip = seen.tooltip}
+        ago.style.font       = "default-small"
+        ago.style.font_color = seen.color
     end
 
     -- Friendship control: only on leader row, only for other teams,
@@ -268,10 +274,17 @@ function M.update_activity_labels_all()
             local members  = teams_data.collect_team_members(force)
             local activity = teams_data.ls_activity_info(members.members)
             if activity then
+                -- Per-member "gone for" labels ride the same one-minute tick.
+                local rows = {}
+                for _, member in ipairs(members.members) do
+                    local seen = teams_data.ls_member_activity(member)
+                    if seen then rows[member.index] = seen end
+                end
                 per_force[force.name] = {
                     caption = {"", " · ", activity.ago_text},
                     color   = activity.color,
                     tooltip = activity.tooltip,
+                    members = rows,
                 }
             end
         end
@@ -292,6 +305,15 @@ function M.update_activity_labels_all()
                     lbl.caption          = data.caption
                     lbl.style.font_color = data.color
                     lbl.tooltip          = data.tooltip
+                end
+                for idx, seen in pairs(data.members or {}) do
+                    local row = card["sb_member_row_" .. idx]
+                    local ago = row and row.valid and row.sb_member_ago
+                    if ago and ago.valid then
+                        ago.caption          = seen.caption
+                        ago.style.font_color = seen.color
+                        ago.tooltip          = seen.tooltip
+                    end
                 end
             end
         end

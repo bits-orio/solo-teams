@@ -10,6 +10,7 @@
 -- resolution the team clock uses.
 
 local spectator = require("scripts.spectator")
+local activity  = require("scripts.activity")
 
 local M = {}
 
@@ -44,7 +45,7 @@ end
 function M.last_seen_tick(list)
     local best
     for _, player in ipairs(list or {}) do
-        local seen = player.connected and game.tick or player.last_online
+        local seen = activity.last_online_tick(player)
         if seen and (not best or seen > best) then best = seen end
     end
     return best

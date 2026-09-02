@@ -20,6 +20,7 @@ local function make_player(spec, index)
         last_online = spec.last_online,
         online_time = spec.online_time or 0,
         admin       = spec.admin or false,
+        chat_color  = spec.chat_color or {r = 1, g = 1, b = 1},
         printed     = {},
     }
     -- A spectating player physically sits on the spectator force.
@@ -230,6 +231,16 @@ function M.install_stubs(opts)
         is_team_force = function(name)
             return tostring(name):match("^team%-%d+$") ~= nil
         end,
+        WHITE = {r = 1, g = 1, b = 1},
+        ls_join = function(items, sep)
+            local out = {""}
+            for i, item in ipairs(items) do
+                if i > 1 then out[#out + 1] = sep end
+                out[#out + 1] = item
+            end
+            return out
+        end,
+        colored_name = function(name, _color) return name end,
     }
 
     package.loaded["scripts.force_utils"] = {
@@ -333,7 +344,9 @@ function M.reset_modules()
         if tostring(name):match("^scripts%.reaper") or name == "scripts.reaper"
            or name == "scripts.team_teardown"
            or name == "gui.stats.discovery"      -- caches depths at module scope
-           or name == "gui.cleanup.state" then
+           or name == "gui.cleanup.state"
+           or name == "scripts.activity"
+           or name == "gui.teams_data" then
             package.loaded[name] = nil
         end
     end

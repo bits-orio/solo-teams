@@ -806,4 +806,53 @@ do
         #cleanup_state.selected_rows(player, rows), 0)
 end
 
+-- ─── shared "last online" definition ───────────────────────────────────
+
+do
+    mock.reset_modules()
+    mock.build{tick = NOW, teams = {[1] = team{members = {
+        member{name = "a", last_online = NOW - 3 * DAY},
+        member{name = "b", connected = true},
+    }}}}
+    mock.install_stubs()
+    local activity = require("scripts.activity")
+    local a, b = game.get_player(1), game.get_player(2)
+    eq("activity: a connected member reads as now", activity.last_online_tick(b), NOW)
+    eq("activity: the engine's last_online is the fallback",
+        activity.last_online_tick(a), NOW - 3 * DAY)
+    storage.player_last_seen = {[1] = NOW - DAY}
+    eq("activity: MTS's own leave stamp is preferred",
+        activity.last_online_tick(a), NOW - DAY)
+    eq("activity: offline_ticks", activity.offline_ticks(a), DAY)
+    check("activity: under an hour is fresh", activity.age_color(HOUR - 1) == activity.COLOR_FRESH)
+    check("activity: under a day is stale",   activity.age_color(DAY - 1)  == activity.COLOR_STALE)
+    check("activity: a day is dead",          activity.age_color(DAY)      == activity.COLOR_DEAD)
+end
+
+do
+    -- The card's own formatter and per-member helper, run for real.
+    mock.reset_modules()
+    mock.build{tick = NOW, teams = {[1] = team{members = {
+        member{name = "gone", last_online = NOW - (2 * DAY + 5 * HOUR)},
+        member{name = "here", connected = true},
+        member{name = "never", last_online = nil},
+    }}}}
+    mock.install_stubs()
+    local td = require("gui.teams_data")
+    eq("ago: days and hours",    td.fmt_ago(2 * DAY + 5 * HOUR), "2d 5h ago")
+    eq("ago: whole days",        td.fmt_ago(3 * DAY), "3d ago")
+    eq("ago: hours and minutes", td.fmt_ago(4 * HOUR + 7 * 3600), "4h 7m ago")
+    eq("ago: under a minute",    td.fmt_ago(1800), "just now")
+
+    local gone = td.ls_member_activity(game.get_player(1))
+    eq("member: offline caption is the ago string", gone.caption[1], "mts-gui.ago-days-hours")
+    eq("member: days", gone.caption[2], 2)
+    eq("member: hours", gone.caption[3], 5)
+    check("member: coloured dead after two days", gone.color == require("scripts.activity").COLOR_DEAD)
+    check("member: carries a tooltip line", gone.tooltip ~= nil)
+    check("member: connected member has no label", td.ls_member_activity(game.get_player(2)) == nil)
+    eq("member: never-seen caption", td.ls_member_activity(game.get_player(3)).caption[1],
+        "mts-tip.seen-never")
+end
+
 return report

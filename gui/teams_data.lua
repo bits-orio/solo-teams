@@ -3,6 +3,7 @@
 
 local spectator = require("scripts.spectator")
 local helpers   = require("scripts.helpers")
+local activity  = require("scripts.activity")
 
 local M = {}
 
@@ -173,7 +174,8 @@ local function fmt_ago(ticks)
     local h = math.floor(s / 3600)
     local m = math.floor((s % 3600) / 60)
     local d = math.floor(h / 24)
-    if d >= 1 then return d .. "d ago" end
+    local rh = h % 24
+    if d >= 1 then return rh > 0 and (d .. "d " .. rh .. "h ago") or (d .. "d ago") end
     if h >= 1 then return h .. "h " .. m .. "m ago" end
     return m .. "m ago"
 end
@@ -189,7 +191,11 @@ local function ls_fmt_ago(ticks)
     local h = math.floor(s / 3600)
     local m = math.floor((s % 3600) / 60)
     local d = math.floor(h / 24)
-    if d >= 1 then return {"mts-gui.ago-days", d} end
+    local rh = h % 24
+    if d >= 1 then
+        if rh > 0 then return {"mts-gui.ago-days-hours", d, rh} end
+        return {"mts-gui.ago-days", d}
+    end
     if h >= 1 then return {"mts-gui.ago-hours-minutes", h, m} end
     return {"mts-gui.ago-minutes", m}
 end
@@ -218,10 +224,9 @@ local function ls_fmt_playtime(ticks)
     return {"mts-gui.playtime-under-minute"}
 end
 
-local function player_last_active_tick(player)
-    if player.connected then return game.tick end
-    return (storage.player_last_seen or {})[player.index]
-end
+-- Shared with the reaper via scripts/activity.lua so the card and the
+-- auto-disband rule can never disagree about who is idle.
+local player_last_active_tick = activity.last_online_tick
 
 local function team_last_active_tick(member_list)
     local best = nil
@@ -262,20 +267,37 @@ M.build_activity_tooltip = build_activity_tooltip
 -- 20-parameters-per-table limit (a nested table restarts the budget). Two
 -- levels cover ~170 lines — far beyond any team's member count.
 --- LocalisedString twin of build_activity_tooltip (dual API).
+--- One member's activity line, shared by the team tooltip and the member row.
+local function ls_member_line(p)
+    local t = player_last_active_tick(p)
+    local seen = p.connected and {"mts-tip.seen-online-now"}
+        or (t and {"mts-tip.last-seen", ls_fmt_ago(game.tick - t)}
+            or {"mts-tip.seen-never"})
+    return {"mts-tip.member-activity", member_rich_name(p),
+        ls_fmt_playtime(p.online_time), seen}
+end
+
 local function ls_build_activity_tooltip(member_list)
     if #member_list == 0 then return nil end
     local lines = {}
-    for _, p in ipairs(member_list) do
-        local t = player_last_active_tick(p)
-        local seen = p.connected and {"mts-tip.seen-online-now"}
-            or (t and {"mts-tip.last-seen", ls_fmt_ago(game.tick - t)}
-                or {"mts-tip.seen-never"})
-        lines[#lines + 1] = {"mts-tip.member-activity", member_rich_name(p),
-            ls_fmt_playtime(p.online_time), seen}
-    end
+    for _, p in ipairs(member_list) do lines[#lines + 1] = ls_member_line(p) end
     return helpers.ls_join(lines, "\n")
 end
 M.ls_build_activity_tooltip = ls_build_activity_tooltip
+
+--- Per-member activity for a Teams card row: the dense "2d 5h ago" caption,
+--- its age colour, and the full line as a tooltip. nil for a connected member,
+--- whose filled dot already says it. Everyone sees this, not only admins, so a
+--- leader can tell which of five members are the three who stopped showing up.
+function M.ls_member_activity(player)
+    if player.connected then return nil end
+    local ago = activity.offline_ticks(player)
+    return {
+        caption = ago and ls_fmt_ago(ago) or {"mts-tip.seen-never"},
+        color   = ago and activity.age_color(ago) or activity.COLOR_UNKNOWN,
+        tooltip = ls_member_line(player),
+    }
+end
 
 --- Activity summary for a team's member list, shared by the teams GUI cards,
 --- the production stats rows, and the disband dialog so they all agree.
@@ -293,14 +315,7 @@ function M.activity_info(member_list)
     for _, p in ipairs(member_list) do
         if p.connected then any_online = true; break end
     end
-    local color
-    if ago_ticks < 216000 then
-        color = {0.4, 1.0, 0.4}
-    elseif ago_ticks < 5184000 then
-        color = {1.0, 0.8, 0.2}
-    else
-        color = {1.0, 0.4, 0.4}
-    end
+    local color = activity.age_color(ago_ticks)
     return {
         ago_ticks  = ago_ticks,
         any_online = any_online,
