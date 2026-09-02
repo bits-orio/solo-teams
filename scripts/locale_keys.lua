@@ -512,6 +512,7 @@ return {
     "mts-tip.max-team-size",
     "mts-tip.max-team-size-dropdown",
     "mts-tip.member-activity",
+    "mts-tip.member-playtime",
     "mts-tip.modifier-for-team",
     "mts-tip.modifier-peaceful",
     "mts-tip.open-admin-panel",

@@ -833,9 +833,9 @@ do
     -- The card's own formatter and per-member helper, run for real.
     mock.reset_modules()
     mock.build{tick = NOW, teams = {[1] = team{members = {
-        member{name = "gone", last_online = NOW - (2 * DAY + 5 * HOUR)},
-        member{name = "here", connected = true},
-        member{name = "never", last_online = nil},
+        member{name = "gone",  last_online = NOW - (2 * DAY + 5 * HOUR), online_time = 48 * HOUR},
+        member{name = "here",  connected = true, online_time = 35 * 3600},
+        member{name = "never", last_online = nil, online_time = 0},
     }}}}
     mock.install_stubs()
     local td = require("gui.teams_data")
@@ -850,9 +850,21 @@ do
     eq("member: hours", gone.caption[3], 5)
     check("member: coloured dead after two days", gone.color == require("scripts.activity").COLOR_DEAD)
     check("member: carries a tooltip line", gone.tooltip ~= nil)
-    check("member: connected member has no label", td.ls_member_activity(game.get_player(2)) == nil)
-    eq("member: never-seen caption", td.ls_member_activity(game.get_player(3)).caption[1],
-        "mts-tip.seen-never")
+    eq("member: 48 hours reads as whole hours", gone.played_caption[3][1], "time-symbol-hours-short")
+    eq("member: hour count", gone.played_caption[3][2], 48)
+    eq("member: offline row separates with a dot", gone.played_caption[2], " · ")
+
+    local here = td.ls_member_activity(game.get_player(2))
+    check("member: connected member has no ago caption", here.caption == nil)
+    eq("member: but shows playtime in minutes under an hour",
+        here.played_caption[3][1], "time-symbol-minutes-short")
+    eq("member: minute count", here.played_caption[3][2], 35)
+    eq("member: online row uses a plain space", here.played_caption[2], " ")
+
+    local never = td.ls_member_activity(game.get_player(3))
+    eq("member: never-seen caption", never.caption[1], "mts-tip.seen-never")
+    eq("member: zero playtime reads under a minute",
+        never.played_caption[3][1], "mts-gui.playtime-under-minute")
 end
 
 return report

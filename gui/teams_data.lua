@@ -285,17 +285,38 @@ local function ls_build_activity_tooltip(member_list)
 end
 M.ls_build_activity_tooltip = ls_build_activity_tooltip
 
---- Per-member activity for a Teams card row: the dense "2d 5h ago" caption,
---- its age colour, and the full line as a tooltip. nil for a connected member,
---- whose filled dot already says it. Everyone sees this, not only admins, so a
---- leader can tell which of five members are the three who stopped showing up.
+--- Compact playtime for a card row: whole hours once past an hour, else
+--- minutes. The full "48h 12m" form stays in the tooltip.
+local function ls_fmt_playtime_short(ticks)
+    local m = math.floor(ticks / 3600)
+    local h = math.floor(m / 60)
+    if h >= 1 then return {"time-symbol-hours-short", h} end
+    if m >= 1 then return {"time-symbol-minutes-short", m} end
+    return {"mts-gui.playtime-under-minute"}
+end
+
+--- Per-member activity for a Teams card row. Everyone sees this, not only
+--- admins, so a leader can tell which of five members are the three who
+--- stopped showing up.
+---   caption        "2d 5h ago" for an offline member; nil when connected
+---                  (the filled dot already says so)
+---   color          age colour for the caption
+---   tooltip        the full line: name, playtime, last seen
+---   played_caption total time online, on EVERY row. A member who put in 48
+---                  hours and then missed a week must not read as a tourist
+---                  just because the last-seen label is red.
 function M.ls_member_activity(player)
-    if player.connected then return nil end
-    local ago = activity.offline_ticks(player)
+    local ago, caption
+    if not player.connected then
+        ago     = activity.offline_ticks(player)
+        caption = ago and ls_fmt_ago(ago) or {"mts-tip.seen-never"}
+    end
     return {
-        caption = ago and ls_fmt_ago(ago) or {"mts-tip.seen-never"},
-        color   = ago and activity.age_color(ago) or activity.COLOR_UNKNOWN,
-        tooltip = ls_member_line(player),
+        caption        = caption,
+        color          = ago and activity.age_color(ago) or activity.COLOR_UNKNOWN,
+        tooltip        = ls_member_line(player),
+        played_caption = {"", player.connected and " " or " · ",
+                          ls_fmt_playtime_short(player.online_time or 0)},
     }
 end
 

@@ -118,6 +118,7 @@ local function add_member_row(parent, member, is_leader_of_team, viewer, viewer_
         cam_btn.style.left_margin = 4
     end
 
+    local seen = teams_data.ls_member_activity(member)
     if member.connected then
         local dot = row.add{type = "label", caption = "  \xE2\x97\x8F"}
         dot.style.font_color  = {0.4, 0.9, 0.4}
@@ -129,12 +130,17 @@ local function add_member_row(parent, member, is_leader_of_team, viewer, viewer_
         -- How long this member has been gone, right next to the name and
         -- coloured by age, so anyone on the team can see who stopped showing
         -- up. The hollow dot already says offline; the time says how long.
-        local seen = teams_data.ls_member_activity(member)
-        local ago  = row.add{type = "label", name = "sb_member_ago",
+        local ago = row.add{type = "label", name = "sb_member_ago",
             caption = seen.caption, tooltip = seen.tooltip}
         ago.style.font       = "default-small"
         ago.style.font_color = seen.color
     end
+    -- Time online sits beside last-seen on every row, so the two facts that
+    -- decide a kick are read together: "5d ago · 48h" is not "5d ago · 20m".
+    local played = row.add{type = "label", name = "sb_member_played",
+        caption = seen.played_caption, tooltip = {"mts-tip.member-playtime"}}
+    played.style.font       = "default-small"
+    played.style.font_color = {0.7, 0.7, 0.7}
 
     -- Friendship control: only on leader row, only for other teams,
     -- only when leader is online, only when viewer is not in pen.
@@ -277,8 +283,7 @@ function M.update_activity_labels_all()
                 -- Per-member "gone for" labels ride the same one-minute tick.
                 local rows = {}
                 for _, member in ipairs(members.members) do
-                    local seen = teams_data.ls_member_activity(member)
-                    if seen then rows[member.index] = seen end
+                    rows[member.index] = teams_data.ls_member_activity(member)
                 end
                 per_force[force.name] = {
                     caption = {"", " · ", activity.ago_text},
@@ -314,6 +319,9 @@ function M.update_activity_labels_all()
                         ago.style.font_color = seen.color
                         ago.tooltip          = seen.tooltip
                     end
+                    -- Online members' playtime keeps ticking up.
+                    local played = row and row.valid and row.sb_member_played
+                    if played and played.valid then played.caption = seen.played_caption end
                 end
             end
         end
