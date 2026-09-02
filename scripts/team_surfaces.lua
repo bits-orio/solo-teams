@@ -142,12 +142,23 @@ end
 --- this surface (game.delete_surface, async). Deliberately does NOT call
 --- cleanup_force_surfaces, which deletes every surface the force owns --
 --- including the destination surface the team just warped to.
+-- Injected by control.lua at parse time (this module cannot require the
+-- reaper). Called with (force_name, surface) BEFORE ownership is unwound.
+local retire_hook = function(_force_name, _surface) end
+function team_surfaces.set_retire_hook(fn) retire_hook = fn end
+
 function team_surfaces.retire_team_surface(force_name, surface_name)
     if not is_team_force(force_name) then return false end
     if type(surface_name) ~= "string" then return false end  -- AT-5: game.surfaces[<table>] errors
     local surface = game.surfaces[surface_name]
     if not (surface and surface.valid) then return false end
     if surface_utils.get_owner(surface) ~= force_name then return false end
+
+    -- Bank this surface's production for the inactive-team reaper while it can
+    -- still be attributed. The unwind below strips ownership, and the engine's
+    -- on_pre_surface_deleted fires only after the ASYNC delete, by which time
+    -- get_owner already answers nil, so the event cannot do this job.
+    retire_hook(force_name, surface)
 
     -- Unwind ownership for THIS surface only. The override map is where ephemeral
     -- ownership now lives; the legacy variant-map unwinds are kept defensively for

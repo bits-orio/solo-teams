@@ -54,6 +54,19 @@ function admin_gui.build_admin_gui(player)
     }
     frame.style.minimal_width = 280
 
+    -- Opens the Cleanup panel. Deliberately a bare button with no require of
+    -- gui.cleanup: that module reaches gui.teams, which requires this file, so
+    -- requiring it here would close a load-time cycle. gui/cleanup.lua claims
+    -- the click by name through gui.nav instead.
+    local cleanup_row = frame.add{type = "flow", direction = "horizontal"}
+    cleanup_row.style.top_margin = 4
+    cleanup_row.add{
+        type    = "button",
+        name    = "sb_admin_cleanup_btn",
+        caption = {"mts-cleanup.open-button"},
+        tooltip = {"mts-cleanup.open-tip"},
+    }
+
     local tabs = frame.add{type = "tabbed-pane", name = "sb_admin_tabs"}
     tabs.style.top_margin = 4
 

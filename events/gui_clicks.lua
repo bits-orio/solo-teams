@@ -21,6 +21,7 @@ local lfm_hint          = require("gui.lfm_hint")
 local pre_start         = require("scripts.pre_start")
 local start_playing_gui = require("gui.start_playing_gui")
 local buddy_store       = require("scripts.buddy_store")
+local cleanup_gui       = require("gui.cleanup")
 
 local M = {}
 
@@ -31,6 +32,7 @@ function M.register()
 
         if nav.dispatch_click(event) then return end
         if return_button.on_gui_click(event) then return end
+        if cleanup_gui.on_gui_click(event) then return end
         if confirm_gui.on_gui_click(event) then return end
         if follow_cam.on_gui_click(event) then teams_gui.update_all(); return end
 

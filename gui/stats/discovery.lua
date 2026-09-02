@@ -173,6 +173,22 @@ end
 
 -- Order a list of item names by tech-unlock depth, with the prototype's
 -- group/item order as a tiebreaker. Drops items the modder has hidden.
+-- An item with NO entry in `depths` has no producer this scan can see: it is
+-- neither crafted by a recipe nor mined from a resource. Rocket-launch products
+-- are the common case (space-science-pack comes only from launching a satellite
+-- whenever Space Age is absent), along with scripted grants and quest rewards.
+-- That is the OPPOSITE of "available from the start", so it must sort LAST.
+-- Scoring it 0 put space-science-pack ahead of every genuinely early item, and
+-- the inactive-team reaper then picked it as the tier-1 progress marker.
+local NO_KNOWN_PRODUCER = math.huge
+
+--- True when this scan can attribute the item to a recipe or a mined resource.
+--- Callers that must not read an unobtainable item as "the team produced none"
+--- gate on this rather than on the sort position alone.
+function M.has_known_producer(name)
+    return get_depths().items[name] ~= nil
+end
+
 function M.sort_by_unlock_depth(names)
     local depths = get_depths().items
     local list = {}
@@ -182,7 +198,7 @@ function M.sort_by_unlock_depth(names)
             local g = proto.group.order
             list[#list + 1] = {
                 name  = name,
-                depth = depths[name] or 0,
+                depth = depths[name] or NO_KNOWN_PRODUCER,
                 tie   = g .. proto.order,
             }
         end

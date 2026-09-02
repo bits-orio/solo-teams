@@ -15,6 +15,7 @@ local start_playing_gui = require("gui.start_playing_gui")
 local color_fix         = require("scripts.color_fix")
 local team_modifiers    = require("scripts.team_modifiers")
 local hud_clock         = require("gui.hud_clock")
+local reaper            = require("scripts.reaper")
 
 local M = {}
 
@@ -117,6 +118,9 @@ function M.register()
             admin_gui.auto_populate_starter_items(player)
         end
 
+        -- Deliver any "your team was disbanded" notice queued while the
+        -- player was offline, and record a return to a condemned team.
+        if player then reaper.on_player_joined(player) end
         if player then color_fix.on_joined(player) end
         if player then spectator.on_player_joined(player) end
         if player and landing_pen.is_in_pen(player) then

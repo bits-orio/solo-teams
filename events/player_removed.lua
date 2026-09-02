@@ -45,6 +45,10 @@ local PLAYER_TABLES = {
     "spectator_last_remote_view",
     -- chat (individual scope; the team-scoped channel is force-keyed)
     "chat_channel_player",
+    -- cleanup panel / reaper (player-index-keyed)
+    "cleanup_selection", "cleanup_sort", "cleanup_pending", "cleanup_cache",
+    "cleanup_gui_location",
+    "reaper_notice",
 }
 
 local function cleanup_player_storage(idx)

@@ -20,11 +20,13 @@ local follow_cam    = require("gui.follow_cam")
 local team_modifiers = require("scripts.team_modifiers")
 local hud_clock     = require("gui.hud_clock")
 local chat_channel  = require("scripts.chat_channel")
+local cleanup_gui   = require("gui.cleanup")
 
 local M = {}
 
 function M.register()
     script.on_event(defines.events.on_gui_confirmed, function(event)
+        if cleanup_gui.on_gui_confirmed(event) then return end
         admin_gui.on_gui_confirmed(event)
         team_settings.on_gui_confirmed(event)
     end)
@@ -56,6 +58,7 @@ function M.register()
     end)
 
     script.on_event(defines.events.on_gui_elem_changed, function(event)
+        if cleanup_gui.on_gui_elem_changed(event) then return end
         stats_gui.on_gui_elem_changed(event)
     end)
 
@@ -88,6 +91,7 @@ function M.register()
     end)
 
     script.on_event(defines.events.on_gui_checked_state_changed, function(event)
+        if cleanup_gui.on_gui_checked_state_changed(event) then return end
         local el = event.element
         if el and el.valid and el.name == "sb_show_offline_toggle" then
             local player = game.get_player(event.player_index)

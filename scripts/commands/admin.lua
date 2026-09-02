@@ -1,17 +1,16 @@
 -- scripts/commands/admin.lua
 -- Admin-only commands: disband, pause, resume, trim.
 
-local teams_gui    = require("gui.teams")
 local teams_data   = require("gui.teams_data")
 local helpers      = require("scripts.helpers")
 local force_utils  = require("scripts.force_utils")
-local landing_pen  = require("gui.landing_pen")
-local spectator    = require("scripts.spectator")
 local confirm      = require("gui.confirm")
 local pause_control = require("scripts.pause.control")
 local surface_utils = require("scripts.surface_utils")
 local chunk_trim   = require("scripts.chunk_trim")
 local color_fix    = require("scripts.color_fix")
+local team_teardown = require("scripts.team_teardown")
+local reaper_journal = require("scripts.reaper.journal")
 
 local M = {}
 
@@ -30,59 +29,37 @@ end
 
 -- ─── Confirm Action ───────────────────────────────────────────────────
 
+--- Phrase a teardown refusal. Each reason takes different parameters, so this
+--- is a branch rather than a lookup table.
+local function refusal_message(reason, slot)
+    if reason == team_teardown.FREED    then return {"mts-cmd.disband-slot-freed"} end
+    if reason == team_teardown.RECYCLED then return {"mts-cmd.disband-slot-recycled", slot} end
+    return {"mts-cmd.disband-team-gone"}
+end
+
+--- Confirm handler for /mts-disband. The teardown itself (members to the pen,
+--- surfaces cleaned, slot released) lives in scripts/team_teardown.lua so the
+--- Cleanup GUI and the auto-reaper destroy a team identically.
 local function perform_disband(admin_player, data)
     local force_name = data and data.force_name
-    local force = force_name and game.forces[force_name]
-    if not force then
-        admin_player.print({"mts-cmd.disband-team-gone"}); return
-    end
-    local slot = helpers.team_slot(force_name)
-    if not slot or (storage.team_pool or {})[slot] ~= "occupied" then
-        admin_player.print({"mts-cmd.disband-slot-freed"}); return
-    end
+    local slot = force_name and helpers.team_slot(force_name)
 
     -- The dialog may have sat open while the team it described disbanded and a
     -- NEW team claimed the same slot. The generation captured at show time
     -- detects that recycle, so Confirm can never hit a team the admin never saw.
-    local current_gen = (storage.team_slot_generation or {})[slot] or 0
-    if data and data.slot_generation ~= nil and data.slot_generation ~= current_gen then
-        admin_player.print({"mts-cmd.disband-slot-recycled", slot})
+    local ok, result = team_teardown.teardown(force_name, {
+        expected_generation = data and data.slot_generation,
+    })
+    if not ok then
+        admin_player.print(refusal_message(result, slot))
         return
     end
 
-    local team_tag = helpers.team_tag_with_leader(force_name)
-    -- Restore any member spectating away (so they are included below and sent to
-    -- the pen, not orphaned onto the recycled slot) and exit outside viewers.
-    spectator.exit_all_for_force(force_name)
-    local members = {}
-    for _, member in pairs(force.players) do members[#members + 1] = member end
-    for _, member in ipairs(members) do
-        if spectator.is_spectating(member) then spectator.exit(member) end
-        storage.left_teams = storage.left_teams or {}
-        storage.left_teams[member.index] = storage.left_teams[member.index] or {}
-        storage.left_teams[member.index][force_name] = true
-
-        local spec_force = game.forces["spectator"]
-        if spec_force then member.force = spec_force end
-
-        if member.connected then
-            landing_pen.return_to_pen(member)
-            member.print({"mts-chat.team-disbanded-member", team_tag})
-        else
-            -- Offline players can't teleport. Clear spawned flag so they land
-            -- in the pen on reconnect.
-            storage.spawned_players = storage.spawned_players or {}
-            storage.spawned_players[member.index] = nil
-        end
+    -- Shadow evidence: did the reaper agree with a call the admin made by hand?
+    if slot then
+        reaper_journal.note_manual_disband(force_name, slot, admin_player.name)
     end
-
-    force_utils.cleanup_force_surfaces(force_name)
-    force_utils.release_team_slot(force_name)
-
-    helpers.broadcast({"mts-chat.team-disbanded-broadcast", team_tag})
-    teams_gui.update_all()
-    landing_pen.update_pen_gui_all()
-    admin_player.print({"mts-cmd.disband-done", team_tag})
+    admin_player.print({"mts-cmd.disband-done", result})
 end
 
 confirm.register("disband", perform_disband)
