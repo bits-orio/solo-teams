@@ -233,7 +233,7 @@ confirm.register("cleanup_bulk", function(player, _data)
         inactive    = true,
     })
     if not ok then player.print({"mts-cleanup.busy"}); return end
-    player.print({"mts-cleanup.started", #entries})
+    player.print({"mts-cleanup.started", #entries, execute.WARNING_TICKS / 60})
     M.rescan(player)
 end)
 

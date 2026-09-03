@@ -20,10 +20,12 @@ local M = {}
 -- gui/platform_hub.lua; tests/tick_periods.py enforces uniqueness.
 M.DRAIN_INTERVAL = 12
 
--- Players get a three-second heads-up before the first teardown: deleting
--- surfaces stalls the server briefly, and an unannounced stall reads as a
--- crash. Each team is then named as its teardown STARTS, never on completion.
-M.WARNING_TICKS = 180
+-- Players get a full minute's warning before the first teardown, repeated at
+-- 30 and 10 seconds and counted down from 3: deleting surfaces stalls the
+-- server briefly, and an unannounced stall reads as a crash. Each team is then
+-- named as its teardown STARTS, never on completion.
+M.WARNING_TICKS = 60 * 60
+M.ANNOUNCE_AT_SECONDS = {60, 30, 10, 3, 2, 1}
 
 local function queue()
     return storage.reaper_queue
@@ -32,13 +34,15 @@ end
 function M.is_running() return queue() ~= nil end
 
 --- Abandon a sweep. Used by /mts-reaper cancel, and by disarming (an armed
---- sweep must actually stop when the admin turns the feature off).
+--- sweep must actually stop when the admin turns the feature off). Everyone
+--- heard the warning, so everyone hears the cancellation.
 function M.cancel(source)
     local q = queue()
     if not q then return 0 end
     if source and q.opts.source ~= source then return 0 end
     local left = #q.items - q.cursor
     storage.reaper_queue = nil
+    helpers.broadcast({"mts-chat.bulk-disband-cancelled", left})
     log("[multi-team-support:reaper] queue cancelled with " .. left .. " pending")
     return left
 end
@@ -67,7 +71,6 @@ function M.enqueue(entries, opts)
         tags       = {},
         start_tick = game.tick + M.WARNING_TICKS,
     }
-    helpers.broadcast({"mts-chat.bulk-disband-starting", #entries})
     return true
 end
 
@@ -89,12 +92,34 @@ local function finish(q)
         .. q.done .. " disbanded, " .. #q.skipped .. " skipped")
 end
 
+--- Fire whichever scheduled warning has just come due. The smallest due
+--- entry wins and everything larger is marked spent, so a queue that resumes
+--- from a save mid-countdown says one thing rather than six at once.
+local function announce(q)
+    local remaining_s = math.ceil((q.start_tick - game.tick) / 60)
+    if remaining_s < 1 then return end
+    q.announced = q.announced or {}
+    local due
+    for _, s in ipairs(M.ANNOUNCE_AT_SECONDS) do
+        if remaining_s <= s and not q.announced[s] and (not due or s < due) then due = s end
+    end
+    if not due then return end
+    for _, s in ipairs(M.ANNOUNCE_AT_SECONDS) do
+        if s >= due then q.announced[s] = true end
+    end
+    if due > 3 then
+        helpers.broadcast({"mts-chat.bulk-disband-in", #q.items, due})
+    else
+        helpers.broadcast({"mts-chat.bulk-disband-countdown", due})
+    end
+end
+
 --- Tear down at most one team. Called from the staged tick handler.
 function M.tick()
     local q = queue()
     if not q then return end
-    if game.tick < (q.start_tick or 0) then return end
     if game.tick % M.DRAIN_INTERVAL ~= 0 then return end
+    if game.tick < (q.start_tick or 0) then announce(q); return end
 
     q.cursor = q.cursor + 1
     local entry = q.items[q.cursor]

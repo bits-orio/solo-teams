@@ -341,7 +341,6 @@ do
         for _, msg in ipairs(game.printed) do if msg[1] == key then n = n + 1 end end
         return n
     end
-    eq("execute: one heads-up before the sweep",   count("mts-chat.bulk-disband-starting"), 1)
     eq("execute: one line per team as it starts",  count("mts-chat.disbanding-team"), 3)
     eq("execute: exactly one closing summary",     count("mts-chat.teams-disbanded-bulk"), 1)
 end
@@ -998,6 +997,58 @@ do
     local half = activity.age_gradient(W / 2, W)
     check("gradient: half a window sits between green and yellow",
         half[1] > activity.COLOR_FRESH[1] and half[1] < activity.COLOR_STALE[1])
+end
+
+-- ─── bulk disband countdown ────────────────────────────────────────────
+
+do
+    local m = setup{teams = {[1] = team{members = {member{last_online = NOW - 2 * DAY}}}}}
+    local entries = m.execute.entries_from_rows(m.scan.reapable(m.scan.run{}))
+    m.execute.enqueue(entries, {source = "manual"})
+    local start = game.tick
+    while game.tick < start + m.execute.WARNING_TICKS do
+        m.execute.tick()
+        game.tick = game.tick + m.execute.DRAIN_INTERVAL
+    end
+    local seen = {}
+    for _, msg in ipairs(game.printed) do
+        if msg[1] == "mts-chat.bulk-disband-in"        then seen[#seen + 1] = msg[3] end
+        if msg[1] == "mts-chat.bulk-disband-countdown" then seen[#seen + 1] = msg[2] end
+    end
+    eq("countdown: six announcements",                    #seen, 6)
+    eq("countdown: in order",                             table.concat(seen, ","), "60,30,10,3,2,1")
+    eq("countdown: nothing torn down during the warning", storage.team_pool[1], "occupied")
+    m.execute.tick()
+    eq("countdown: teardown begins at the start tick",    storage.team_pool[1], "available")
+end
+
+do
+    -- A queue resumed from a save with most of its window already gone says
+    -- one thing, not six.
+    local m = setup{teams = {[1] = team{members = {member{last_online = NOW - 2 * DAY}}}}}
+    local entries = m.execute.entries_from_rows(m.scan.reapable(m.scan.run{}))
+    m.execute.enqueue(entries, {source = "manual"})
+    game.tick = game.tick + m.execute.WARNING_TICKS - 2 * 60      -- two seconds left
+    m.execute.tick()
+    local n, last = 0, nil
+    for _, msg in ipairs(game.printed) do
+        if msg[1] == "mts-chat.bulk-disband-countdown" then n = n + 1; last = msg[2] end
+        if msg[1] == "mts-chat.bulk-disband-in" then n = n + 1 end
+    end
+    eq("countdown: a jump collapses to one announcement", n, 1)
+    eq("countdown: and it is the current one",           last, 2)
+end
+
+do
+    local m = setup{teams = {[1] = team{members = {member{last_online = NOW - 2 * DAY}}}}}
+    local entries = m.execute.entries_from_rows(m.scan.reapable(m.scan.run{}))
+    m.execute.enqueue(entries, {source = "manual"})
+    m.execute.cancel()
+    local cancelled = false
+    for _, msg in ipairs(game.printed) do
+        if msg[1] == "mts-chat.bulk-disband-cancelled" then cancelled = (msg[2] == 1) end
+    end
+    check("cancel: everyone hears it, with the count", cancelled)
 end
 
 return report
