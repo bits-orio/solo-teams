@@ -75,6 +75,18 @@ function M.heartbeat()
     M.run_cycle()
 end
 
+--- The tick the next cycle will actually run. The heartbeat fires on fixed
+--- boundaries and runs the cycle when it finds the interval elapsed, so the
+--- real moment is the first boundary at or after the due tick, not the due
+--- tick itself.
+function M.next_run_tick()
+    local due = (storage.reaper_last_run or 0)
+        + config.value("cycle_hours") * config.TICKS_PER_HOUR
+    local hb  = config.HEARTBEAT_TICKS
+    local earliest = math.max(due, game.tick + 1)
+    return math.ceil(earliest / hb) * hb
+end
+
 -- ─── Reminders ─────────────────────────────────────────────────────────
 
 function M.free_slots()

@@ -87,6 +87,8 @@ local function print_stats(out)
     out({"mts-reaper.report-counts", s.cycles, s.flagged, reaper.free_slots()})
     out({"mts-reaper.report-evidence",
         s.resurrections, s.agreements, s.disagreements, s.executed})
+    out({"mts-reaper.report-next",
+        mts_helpers.fmt_span(math.max(0, reaper.next_run_tick() - game.tick))})
 end
 
 local function print_resurrections(out)

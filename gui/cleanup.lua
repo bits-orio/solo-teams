@@ -8,6 +8,13 @@ local config = require("scripts.reaper.config")
 local markers = require("scripts.reaper.markers")
 local reaper = require("scripts.reaper")
 local nav    = require("gui.nav")
+local teams_gui  = require("gui.teams")
+local teams_data = require("gui.teams_data")
+local helpers    = require("scripts.helpers")
+
+-- Mirrors gui/follow_cam_frame.CHART_RADIUS. Not required from there: that
+-- module sits in the Teams GUI's require chain and is heavier than one number.
+local CHART_RADIUS = 200
 
 local M = {}
 
@@ -36,6 +43,41 @@ end
 
 function M.refresh_badges_all()
     for _, player in pairs(game.connected_players) do M.refresh_badge(player) end
+end
+
+--- The team's ground base, for the spectate button. Platforms are skipped:
+--- an inactive team's story is on the surface it spawned on.
+local function home_surface(force)
+    for _, info in ipairs(teams_data.collect_team_surfaces(force)) do
+        local surface = info.surface_name and game.surfaces[info.surface_name]
+        if surface and surface.valid and not surface.platform then return surface end
+    end
+    return nil
+end
+
+--- Spectate a team from the Cleanup panel. Goes through the Teams card's own
+--- spectate path, then charts around the spawn for whichever force the viewer
+--- now sees through, so a base nobody has looked at in a week is not black.
+function M.ping(player, force_name)
+    local force = game.forces[force_name]
+    if not (force and force.valid) then return end
+    local surface = home_surface(force)
+    if not surface then player.print({"mts-cleanup.ping-no-surface"}); return end
+
+    local position = force.get_spawn_position(surface) or helpers.ORIGIN
+    teams_gui.spectate_from_tags(player, {
+        sb_target_force = force_name,
+        sb_surface      = surface.name,
+        sb_position     = {x = position.x, y = position.y},
+    })
+
+    local viewing = player.force
+    if viewing and viewing.valid then
+        viewing.chart(surface, {
+            {position.x - CHART_RADIUS, position.y - CHART_RADIUS},
+            {position.x + CHART_RADIUS, position.y + CHART_RADIUS},
+        })
+    end
 end
 
 -- ─── Events ────────────────────────────────────────────────────────────
@@ -79,6 +121,11 @@ function M.on_gui_click(event)
 
     if element.name == "sb_cleanup_disband" then
         panel.request_disband(player)
+        return true
+    end
+
+    if element.tags and element.tags.mts_cleanup_ping then
+        M.ping(player, element.tags.mts_cleanup_ping)
         return true
     end
 

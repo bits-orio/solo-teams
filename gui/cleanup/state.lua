@@ -9,7 +9,7 @@ local M = {}
 
 M.SORT_KEYS = {
     verdict = true, offline = true, team_hours = true,
-    tier1 = true, entities = true, slot = true,
+    tier1 = true, tier2 = true, entities = true, slot = true,
 }
 
 local function bucket(key, player_index)
@@ -105,6 +105,7 @@ local function sort_value(row, key)
     if key == "offline"    then return -(row.offline_ticks or -1) end
     if key == "team_hours" then return row.team_ticks or 0 end
     if key == "tier1"      then return row.tier1 or 0 end
+    if key == "tier2"      then return row.tier2 or 0 end
     if key == "entities"   then return row.entities or -1 end
     return row.slot or 0
 end

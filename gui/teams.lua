@@ -128,6 +128,10 @@ local function on_spectate_click(player, tags)
     end
 end
 
+-- Public so the admin Cleanup panel can spectate a team through the exact
+-- same path the card uses (leader position, friend-view vs full spectate).
+teams_gui.spectate_from_tags = on_spectate_click
+
 local function on_follow_cam_toggle(player, tags)
     if not tags.target_idx then return end
     follow_cam.toggle_target(player, tags.target_idx)

@@ -170,6 +170,21 @@ function helpers.fmt_duration_coarse(ticks)
     return string.format("%dm", m)
 end
 
+--- Day-resolution span for tables that compare long absences: "4d 7h",
+--- "7h 10m", "26m", "<1m". Minutes drop out once a span has hours, hours once
+--- it has days, so a column of these scans at a glance.
+function helpers.fmt_span(ticks)
+    local m = math.floor(ticks / 3600)
+    local h = math.floor(m / 60); m = m % 60
+    local d = math.floor(h / 24); h = h % 24
+    if d >= 1 then
+        return h > 0 and string.format("%dd %dh", d, h) or string.format("%dd", d)
+    end
+    if h >= 1 then return string.format("%dh %dm", h, m) end
+    if m >= 1 then return string.format("%dm", m) end
+    return "<1m"
+end
+
 -- ─── Force Helpers ─────────────────────────────────────────────────────
 
 --- Get the display name for a force.

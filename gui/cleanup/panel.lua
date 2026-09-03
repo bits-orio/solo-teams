@@ -27,6 +27,15 @@ local function add_summary(parent, result)
         reaper.free_slots(), #(result.rows or {})}}
     flow.add{type = "label", caption = {"mts-cleanup.summary-markers",
         tostring(markers.tier1() or "-"), tostring(markers.tier2() or "-")}}
+    -- When armed this is the moment flagged teams go, so say so plainly.
+    local wait = helpers.fmt_span(math.max(0, reaper.next_run_tick() - game.tick))
+    local next_line
+    if config.value("auto_disband_enabled") then
+        next_line = {"mts-cleanup.summary-next-armed", wait}
+    else
+        next_line = {"mts-cleanup.summary-next-shadow", wait}
+    end
+    flow.add{type = "label", caption = next_line}
 end
 
 --- Threshold and marker controls. These live here and NOT in settings.lua

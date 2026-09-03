@@ -20,6 +20,11 @@ local M = {}
 -- gui/platform_hub.lua; tests/tick_periods.py enforces uniqueness.
 M.DRAIN_INTERVAL = 12
 
+-- Players get a three-second heads-up before the first teardown: deleting
+-- surfaces stalls the server briefly, and an unannounced stall reads as a
+-- crash. Each team is then named as its teardown STARTS, never on completion.
+M.WARNING_TICKS = 180
+
 local function queue()
     return storage.reaper_queue
 end
@@ -54,13 +59,15 @@ function M.enqueue(entries, opts)
     if not entries or #entries == 0 then return false end
     opts = opts or {}
     storage.reaper_queue = {
-        items   = entries,
-        cursor  = 0,
-        opts    = opts,
-        done    = 0,
-        skipped = {},
-        tags    = {},
+        items      = entries,
+        cursor     = 0,
+        opts       = opts,
+        done       = 0,
+        skipped    = {},
+        tags       = {},
+        start_tick = game.tick + M.WARNING_TICKS,
     }
+    helpers.broadcast({"mts-chat.bulk-disband-starting", #entries})
     return true
 end
 
@@ -86,6 +93,7 @@ end
 function M.tick()
     local q = queue()
     if not q then return end
+    if game.tick < (q.start_tick or 0) then return end
     if game.tick % M.DRAIN_INTERVAL ~= 0 then return end
 
     q.cursor = q.cursor + 1
@@ -109,6 +117,13 @@ function M.tick()
             if q.cursor >= #q.items then finish(q) end
             return
         end
+    end
+
+    -- Name the team as its teardown starts. Checked first so a slot recycled
+    -- since the verdict is skipped silently rather than announced and skipped.
+    if teardown.check(entry.force_name, entry.generation) then
+        helpers.broadcast({"mts-chat.disbanding-team",
+            helpers.team_tag_with_leader(entry.force_name)})
     end
 
     local ok, result = teardown.teardown(entry.force_name, {

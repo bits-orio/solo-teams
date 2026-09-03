@@ -321,6 +321,9 @@ do
     eq("execute: three teams queued", #entries, 3)
     check("execute: enqueue accepted", m.execute.enqueue(entries, {source = "manual"}))
     check("execute: reports running", m.execute.is_running())
+    m.execute.tick()
+    eq("execute: nothing is torn down inside the warning window", storage.team_pool[1], "occupied")
+    game.tick = game.tick + m.execute.WARNING_TICKS
 
     local drained = 0
     for _ = 1, 10 do
@@ -333,7 +336,14 @@ do
     eq("execute: all slots freed",
         (storage.team_pool[1] .. storage.team_pool[2] .. storage.team_pool[3]),
         "availableavailableavailable")
-    eq("execute: exactly one summary broadcast", #game.printed, 1)
+    local function count(key)
+        local n = 0
+        for _, msg in ipairs(game.printed) do if msg[1] == key then n = n + 1 end end
+        return n
+    end
+    eq("execute: one heads-up before the sweep",   count("mts-chat.bulk-disband-starting"), 1)
+    eq("execute: one line per team as it starts",  count("mts-chat.disbanding-team"), 3)
+    eq("execute: exactly one closing summary",     count("mts-chat.teams-disbanded-bulk"), 1)
 end
 
 do
@@ -345,6 +355,7 @@ do
 
     -- The player comes back after the verdict was written.
     game.get_player(1).connected = true
+    game.tick = game.tick + m.execute.WARNING_TICKS
     m.execute.tick()
     eq("execute: returning player is not destroyed", storage.team_pool[1], "occupied")
     eq("execute: return recorded as a resurrection", m.journal.stats().resurrections, 1)
@@ -356,6 +367,7 @@ do
     local entries = m.execute.entries_from_rows(m.scan.reapable(m.scan.run{}))
     storage.team_slot_generation[1] = 9        -- recycled before the queue drained
     m.execute.enqueue(entries, {source = "manual"})
+    game.tick = game.tick + m.execute.WARNING_TICKS
     m.execute.tick()
     eq("execute: recycled slot survives", storage.team_pool[1], "occupied")
 end
@@ -388,6 +400,7 @@ do
     local result = m.reaper.run_cycle{}
     eq("facade: armed cycle enqueues the flagged set", result.enqueued, 2)
     check("facade: armed cycle starts the queue", m.execute.is_running())
+    game.tick = game.tick + m.execute.WARNING_TICKS
     for _ = 1, 5 do
         if not m.execute.is_running() then break end
         m.execute.tick()
@@ -753,6 +766,7 @@ do
     m.execute.enqueue(entries, {source = "auto", recheck = true})
     -- The team got going again before the queue reached it.
     game.surfaces["team-1-s1"].production["red-pack"] = 1
+    game.tick = game.tick + m.execute.WARNING_TICKS
     m.execute.tick()
     eq("drain: a team that started producing survives", storage.team_pool[1], "occupied")
 end
@@ -872,6 +886,39 @@ do
     eq("tooltip: never-seen status", never.tooltip[3][3][1], "mts-tip.member-status-never")
     eq("member: zero playtime reads under a minute",
         never.played_caption[3][1], "mts-gui.playtime-under-minute")
+end
+
+-- ─── day spans, next-check countdown, sort keys ────────────────────────
+
+do
+    -- The real formatter, not the stub: scripts/helpers.lua is a leaf.
+    package.loaded["scripts.helpers"] = nil
+    local real = require("scripts.helpers")
+    eq("span: days and hours",      real.fmt_span(4 * DAY + 7 * HOUR + 10 * 3600), "4d 7h")
+    eq("span: whole days",          real.fmt_span(2 * DAY), "2d")
+    eq("span: hours and minutes",   real.fmt_span(7 * HOUR + 10 * 3600), "7h 10m")
+    eq("span: minutes",             real.fmt_span(26 * 3600), "26m")
+    eq("span: under a minute",      real.fmt_span(59 * 60), "<1m")
+    mock.install_stubs()
+end
+
+do
+    local m = setup{teams = {}}
+    m.config.set_number("cycle_hours", 6)
+    storage.reaper_last_run = NOW
+    local hb = m.config.HEARTBEAT_TICKS
+    local next_run = m.reaper.next_run_tick()
+    eq("countdown: next run sits on a heartbeat boundary", next_run % hb, 0)
+    check("countdown: not before the interval elapses", next_run >= NOW + 6 * HOUR)
+    check("countdown: and not a whole heartbeat late", next_run < NOW + 6 * HOUR + hb)
+    game.tick = NOW + 20 * HOUR                       -- long overdue
+    eq("countdown: overdue resolves to the next boundary, not the past",
+        m.reaper.next_run_tick(), math.ceil((game.tick + 1) / hb) * hb)
+end
+
+do
+    local cleanup_state = require("gui.cleanup.state")
+    check("sort: tier2 is a sortable column", cleanup_state.SORT_KEYS.tier2 == true)
 end
 
 return report

@@ -241,6 +241,15 @@ function M.install_stubs(opts)
             return out
         end,
         colored_name = function(name, _color) return name end,
+        fmt_span = function(ticks)
+            local m = math.floor(ticks / 3600)
+            local h = math.floor(m / 60); m = m % 60
+            local d = math.floor(h / 24); h = h % 24
+            if d >= 1 then return h > 0 and (d .. "d " .. h .. "h") or (d .. "d") end
+            if h >= 1 then return h .. "h " .. m .. "m" end
+            if m >= 1 then return m .. "m" end
+            return "<1m"
+        end,
     }
 
     package.loaded["scripts.force_utils"] = {

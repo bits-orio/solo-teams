@@ -170,14 +170,7 @@ end
 
 local function fmt_ago(ticks)
     if ticks < 3600 then return "just now" end
-    local s = math.floor(ticks / 60)
-    local h = math.floor(s / 3600)
-    local m = math.floor((s % 3600) / 60)
-    local d = math.floor(h / 24)
-    local rh = h % 24
-    if d >= 1 then return rh > 0 and (d .. "d " .. rh .. "h ago") or (d .. "d ago") end
-    if h >= 1 then return h .. "h " .. m .. "m ago" end
-    return m .. "m ago"
+    return helpers.fmt_span(ticks) .. " ago"
 end
 M.fmt_ago = fmt_ago
 
