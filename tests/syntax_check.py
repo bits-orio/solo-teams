@@ -2,13 +2,21 @@
 """Parse every Lua file in the mod. Catches syntax errors Factorio would only
 report at load time."""
 import os, sys
-from lupa import LuaRuntime
+# Factorio embeds Lua 5.2. lupa's default runtime is newer and accepts
+# constructs 5.2 rejects (\u{} escapes, // division, integer subtypes), which
+# let a load-time failure pass every headless check once. Pin to 5.2.
+from lupa.lua52 import LuaRuntime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKIP = {".git", ".claude", "tests"}
 
 def main():
     lua = LuaRuntime()
+    version = lua.eval("_VERSION")
+    if version != "Lua 5.2":
+        print(f"REFUSING: harness is running {version}, Factorio runs Lua 5.2")
+        return 2
+    print(f"checking under {version}")
     check = lua.eval('function(p) local f, e = loadfile(p); if f then return "" end return tostring(e) end')
     bad, count = [], 0
     for dirpath, dirnames, filenames in os.walk(ROOT):

@@ -51,7 +51,7 @@ local function add_header(tbl, player)
             label.style.font = "default-bold"
         else
             local marker = (sort.key == sort_key)
-                and (sort.ascending and " \u{25B2}" or " \u{25BC}") or ""
+                and (sort.ascending and " \xE2\x96\xB2" or " \xE2\x96\xBC") or ""
             local button = tbl.add{
                 type    = "button",
                 caption = {"", {caption}, marker},

@@ -6,7 +6,10 @@ exactly stock Lua package.path behaviour, so the real modules load unchanged.
 The Factorio runtime itself is mocked in tests/mock_factorio.lua.
 """
 import sys, os
-from lupa import LuaRuntime
+# Factorio embeds Lua 5.2. lupa's default runtime is newer and accepts
+# constructs 5.2 rejects (\u{} escapes, // division, integer subtypes), which
+# let a load-time failure pass every headless check once. Pin to 5.2.
+from lupa.lua52 import LuaRuntime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

@@ -6,7 +6,10 @@ audit) through the actual scan module and reports which teams it flags. This is
 the design's regression test against production data, not a synthetic case.
 """
 import csv, os, sys
-from lupa import LuaRuntime
+# Factorio embeds Lua 5.2. lupa's default runtime is newer and accepts
+# constructs 5.2 rejects (\u{} escapes, // division, integer subtypes), which
+# let a load-time failure pass every headless check once. Pin to 5.2.
+from lupa.lua52 import LuaRuntime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DAY, HOUR = 60 * 60 * 60 * 24, 60 * 60 * 60

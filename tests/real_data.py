@@ -6,7 +6,10 @@ scripts/reaper/scan.lua against it, so the verdicts reported are the mod's own,
 not a Python restatement of the rule.
 """
 import csv, os
-from lupa import LuaRuntime
+# Factorio embeds Lua 5.2. lupa's default runtime is newer and accepts
+# constructs 5.2 rejects (\u{} escapes, // division, integer subtypes), which
+# let a load-time failure pass every headless check once. Pin to 5.2.
+from lupa.lua52 import LuaRuntime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DAY, HOUR = 60 * 60 * 60 * 24, 60 * 60 * 60
