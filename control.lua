@@ -46,6 +46,9 @@ require("scripts.team_surfaces").set_raise_hook(remote_api.raise_team_surface_cr
 -- Same reason: a retiring surface's production must be banked for the reaper
 -- BEFORE team_surfaces strips its ownership, and it cannot require the reaper.
 require("scripts.team_surfaces").set_retire_hook(reaper.on_surface_retiring)
+-- The armed cycle cannot require the Cleanup GUI (that module requires the
+-- reaper), so the intervention prompt is handed down here.
+reaper.set_intervention_hook(cleanup_gui.prompt_intervention)
 local pre_start         = require("scripts.pre_start")
 require("scripts.team_disband")  -- injects remote_api.disband_impl (mts-v1 disband_team)
 -- Inject the shared rename rule into the Team Settings GUI. team_rename requires

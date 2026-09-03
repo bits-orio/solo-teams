@@ -1051,4 +1051,30 @@ do
     check("cancel: everyone hears it, with the count", cancelled)
 end
 
+-- ─── armed cycle offers an intervention ────────────────────────────────
+
+do
+    local m = setup{max_teams = 4, teams = {
+        [1] = team{members = {member{last_online = NOW - 2 * DAY}}},
+        [2] = team{members = {member{last_online = NOW - 3 * DAY}}},
+        [3] = team{members = {member{connected = true}}},
+    }}
+    local got
+    m.reaper.set_intervention_hook(function(rows) got = rows end)
+
+    m.reaper.run_cycle{}
+    check("intervene: shadow mode never prompts", got == nil)
+
+    m.config.set_flag("auto_disband_enabled", true)
+    m.reaper.run_cycle{}
+    check("intervene: armed cycle hands the flagged rows to the prompt", got ~= nil)
+    eq("intervene: exactly the teams about to go", #got, 2)
+    check("intervene: the sweep is queued but waiting", m.execute.is_running()
+        and storage.team_pool[1] == "occupied")
+
+    eq("intervene: Stop cancels the auto sweep", m.execute.cancel("auto"), 2)
+    check("intervene: nothing was removed", storage.team_pool[1] == "occupied"
+        and storage.team_pool[2] == "occupied")
+end
+
 return report

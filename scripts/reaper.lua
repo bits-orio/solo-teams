@@ -18,6 +18,13 @@ local spectator   = require("scripts.spectator")
 
 local M = {}
 
+-- Filled in by control.lua with the Cleanup GUI's intervention prompt. The
+-- cycle cannot require the GUI (gui.cleanup requires this module), so the
+-- GUI hands its function down at parse time, the way the rest of MTS wires
+-- across that boundary.
+local intervene = function(_rows) end
+function M.set_intervention_hook(fn) intervene = fn end
+
 M.config  = config
 M.markers = markers
 M.scan    = scan
@@ -58,6 +65,9 @@ function M.run_cycle(opts)
             recheck  = true,
         })
         result.enqueued = #rows
+        -- Nobody clicked anything for this one. Give every admin online a way
+        -- to stop it inside the warning window.
+        intervene(rows)
     end
 
     M.notify_admins(result)

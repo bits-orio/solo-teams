@@ -192,6 +192,21 @@ function M.toggle(player)
     M.build(player, false)
 end
 
+--- Name every team in a list, capped so a 40-team sweep does not overflow a
+--- dialog. The overflow count joins the list rather than the sentence, so a
+--- selection that fits reads without a trailing "and 0 more".
+function M.ls_team_list(rows)
+    local names = {}
+    for _, row in ipairs(rows) do
+        names[#names + 1] = {"mts-cleanup.confirm-line", row.slot,
+            row.display_name, row.leader_name or "-"}
+        if #names >= 12 then break end
+    end
+    local extra = #rows - #names
+    if extra > 0 then names[#names + 1] = {"mts-cleanup.confirm-more", extra} end
+    return helpers.ls_join(names, "\n")
+end
+
 --- Stage the selection and ask for confirmation, naming every team.
 function M.request_disband(player)
     local rows     = M.current_rows()
@@ -200,22 +215,10 @@ function M.request_disband(player)
 
     state.stage(player, execute.entries_from_rows(selected))
 
-    -- Name every team, capped so a 40-team sweep does not overflow the dialog.
-    -- The overflow count joins the list rather than sitting in the sentence, so
-    -- a selection that fits reads without a trailing "and 0 more".
-    local names = {}
-    for _, row in ipairs(selected) do
-        names[#names + 1] = {"mts-cleanup.confirm-line", row.slot,
-            row.display_name, row.leader_name or "-"}
-        if #names >= 12 then break end
-    end
-    local extra = #selected - #names
-    if extra > 0 then names[#names + 1] = {"mts-cleanup.confirm-more", extra} end
-
     confirm.show(player, {
         title        = {"mts-cleanup.confirm-title", #selected},
         message      = {"mts-cleanup.confirm-message", #selected,
-                        helpers.ls_join(names, "\n")},
+                        M.ls_team_list(selected)},
         confirm_text = {"mts-cleanup.confirm-ok"},
         cancel_text  = {"mts-confirm.cancel"},
         action       = "cleanup_bulk",

@@ -12,6 +12,8 @@ local teams_gui  = require("gui.teams")
 local teams_data = require("gui.teams_data")
 local helpers    = require("scripts.helpers")
 local chart_sync = require("scripts.chart_sync")
+local confirm    = require("gui.confirm")
+local execute    = require("scripts.reaper.execute")
 
 local M = {}
 
@@ -77,6 +79,34 @@ function M.ping(player, force_name)
     })
     chart_sync.push_chart(force, player.force, surface)
 end
+
+--- An armed sweep was queued by the cycle, not by a click. Every admin online
+--- gets a dialog naming the teams with a Stop button, and a red chat line
+--- naming the command, so cold feet inside the warning window has somewhere
+--- to go. Reaper calls this through the hook control.lua injects.
+function M.prompt_intervention(rows)
+    local seconds = execute.WARNING_TICKS / 60
+    for _, admin in pairs(game.connected_players) do
+        if admin.admin then
+            admin.print({"mts-reaper.auto-queued", #rows, seconds})
+            confirm.show(admin, {
+                title        = {"mts-cleanup.intervene-title", #rows},
+                message      = {"mts-cleanup.intervene-message", #rows, seconds,
+                                panel.ls_team_list(rows)},
+                confirm_text = {"mts-cleanup.intervene-stop"},
+                cancel_text  = {"mts-cleanup.intervene-let-run"},
+                action       = "reaper_stop_auto",
+            })
+        end
+    end
+end
+
+confirm.register("reaper_stop_auto", function(player, _data)
+    if not (player and player.valid and player.admin) then return end
+    local dropped = execute.cancel("auto")
+    player.print(dropped > 0 and {"mts-reaper.cancel-done", dropped}
+        or {"mts-reaper.cancel-none"})
+end)
 
 -- ─── Events ────────────────────────────────────────────────────────────
 
