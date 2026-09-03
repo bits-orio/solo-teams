@@ -11,10 +11,7 @@ local nav    = require("gui.nav")
 local teams_gui  = require("gui.teams")
 local teams_data = require("gui.teams_data")
 local helpers    = require("scripts.helpers")
-
--- Mirrors gui/follow_cam_frame.CHART_RADIUS. Not required from there: that
--- module sits in the Teams GUI's require chain and is heavier than one number.
-local CHART_RADIUS = 200
+local chart_sync = require("scripts.chart_sync")
 
 local M = {}
 
@@ -55,9 +52,17 @@ local function home_surface(force)
     return nil
 end
 
---- Spectate a team from the Cleanup panel. Goes through the Teams card's own
---- spectate path, then charts around the spawn for whichever force the viewer
---- now sees through, so a base nobody has looked at in a week is not black.
+--- Spectate a team from the Cleanup panel, through the Teams card's own
+--- spectate path, then hand the viewer everything the team has charted.
+---
+--- Why the second step exists: chart sharing pushes a friend's updates into
+--- the spectator force's own chart, it is not a live union, and
+--- cleanup_charts wipes that chart every few minutes. An active team keeps
+--- re-pushing through players and radars; a dormant one never does, so it
+--- showed pure black. Measured live: team-15 charted at spawn by its own
+--- force, spectator force not, every link and flag identical to a working
+--- team. Requesting the team's charted chunks for the viewing force is what
+--- makes the base appear.
 function M.ping(player, force_name)
     local force = game.forces[force_name]
     if not (force and force.valid) then return end
@@ -70,14 +75,7 @@ function M.ping(player, force_name)
         sb_surface      = surface.name,
         sb_position     = {x = position.x, y = position.y},
     })
-
-    local viewing = player.force
-    if viewing and viewing.valid then
-        viewing.chart(surface, {
-            {position.x - CHART_RADIUS, position.y - CHART_RADIUS},
-            {position.x + CHART_RADIUS, position.y + CHART_RADIUS},
-        })
-    end
+    chart_sync.push_chart(force, player.force, surface)
 end
 
 -- ─── Events ────────────────────────────────────────────────────────────

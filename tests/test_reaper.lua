@@ -921,4 +921,51 @@ do
     check("sort: tier2 is a sortable column", cleanup_state.SORT_KEYS.tier2 == true)
 end
 
+-- ─── spectator chart sync ──────────────────────────────────────────────
+
+do
+    -- The measured failure: the team has its spawn charted, the spectator
+    -- force has nothing, every link and flag is fine.
+    mock.reset_modules()
+    mock.build{tick = NOW, max_teams = 16,
+        teams = {[15] = team{members = {member{last_online = NOW - 5 * DAY}},
+        surfaces = {{chunk_side = 3}}}}}
+    mock.install_stubs()
+    package.loaded["scripts.chart_sync"] = nil
+    local chart_sync = require("scripts.chart_sync")
+    local team15  = game.forces["team-15"]
+    local spec    = game.forces["spectator"]
+    local surface = game.surfaces["team-15-s1"]
+    team15.chart(surface, {{0, 0}, {64, 64}})          -- the team charted a 2x2 corner
+    check("sync: precondition, team sees its spawn", team15.is_chunk_charted(surface, {x = 0, y = 0}))
+    check("sync: precondition, spectator does not",  spec.is_chunk_charted(surface, {x = 0, y = 0}) == false)
+
+    eq("sync: pushes exactly the chunks the team has and the viewer lacks",
+        chart_sync.push_chart(team15, spec, surface), 4)
+    check("sync: spectator now sees spawn", spec.is_chunk_charted(surface, {x = 0, y = 0}))
+    check("sync: never reveals what the team itself has not charted",
+        spec.is_chunk_charted(surface, {x = 2, y = 2}) == false)
+    eq("sync: a second push has nothing to do", chart_sync.push_chart(team15, spec, surface), 0)
+    eq("sync: invalid inputs are a no-op", chart_sync.push_chart(nil, spec, surface), 0)
+end
+
+do
+    mock.reset_modules()
+    mock.build{tick = NOW, teams = {
+        [1] = team{members = {member{name = "viewer", connected = true}}, surfaces = {{}}},
+        [2] = team{members = {}, surfaces = {{}}},
+    }}
+    mock.install_stubs()
+    package.loaded["scripts.chart_sync"] = nil
+    local chart_sync = require("scripts.chart_sync")
+    local viewer = game.get_player(1)
+    viewer.surface = game.surfaces["team-2-s1"]        -- looking at team 2
+    storage.spectating_target = {[1] = "team-2"}
+    local viewed = chart_sync.viewed_surfaces()
+    check("viewed: the surface under a spectator is protected", viewed[game.surfaces["team-2-s1"].index])
+    check("viewed: the spectator's own home surface is not", viewed[game.surfaces["team-1-s1"].index] == nil)
+    storage.spectating_target = {}
+    check("viewed: nobody spectating, nothing protected", next(chart_sync.viewed_surfaces()) == nil)
+end
+
 return report

@@ -7,6 +7,7 @@
 -- spectator-specific.
 
 local helpers = require("scripts.helpers")
+local chart_sync = require("scripts.chart_sync")
 
 local surface_utils = {}
 
@@ -235,7 +236,10 @@ function surface_utils.cleanup_charts()
     local spec = game.forces["spectator"]
     if not spec then return end
 
-    local active_surfaces = {}
+    -- Anything a spectator is viewing right now, plus the platforms of every
+    -- spectated force. Planet surfaces were never protected before, so a
+    -- dormant team's chart vanished from under its viewer within five minutes.
+    local active_surfaces = chart_sync.viewed_surfaces()
     for _, target_fn in pairs(storage.spectating_target) do
         local force = game.forces[target_fn]
         if force then

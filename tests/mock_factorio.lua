@@ -32,7 +32,17 @@ local function make_player(spec, index)
 end
 
 local function make_force(name, surfaces)
-    local force = {name = name, valid = true, players = {}}
+    local force = {name = name, valid = true, players = {}, charted = {}}
+    local function key(surface, chunk) return surface.name .. ":" .. chunk.x .. ":" .. chunk.y end
+    function force.is_chunk_charted(surface, chunk) return force.charted[key(surface, chunk)] == true end
+    function force.chart(surface, area)
+        for chunk in surface.get_chunks() do
+            if chunk.area[1][1] >= area[1][1] and chunk.area[2][1] <= area[2][1]
+               and chunk.area[1][2] >= area[1][2] and chunk.area[2][2] <= area[2][2] then
+                force.charted[key(surface, chunk)] = true
+            end
+        end
+    end
     function force.get_item_production_statistics(surface)
         -- Engine statistics are per (force, surface) and know NOTHING about
         -- MTS's ownership map. `produced_by` is the engine-level fact; `owner`
@@ -51,6 +61,17 @@ local function make_surface(name, owner, spec)
         entities   = spec.entities or 0,
         ghosts     = spec.ghosts or 0,
     }
+    -- A small grid of generated chunks, so chart sync has something to walk.
+    local side = spec.chunk_side or 2
+    function surface.get_chunks()
+        local list, i = {}, 0
+        for cx = 0, side - 1 do for cy = 0, side - 1 do
+            list[#list + 1] = {x = cx, y = cy,
+                area = {{cx * 32, cy * 32}, {cx * 32 + 32, cy * 32 + 32}}}
+        end end
+        return function() i = i + 1; return list[i] end
+    end
+    surface.index = spec.index or 0
     function surface.count_entities_filtered(filter)
         if filter.type == "entity-ghost" then return surface.ghosts end
         return surface.entities + surface.ghosts
@@ -92,6 +113,7 @@ function M.build(spec)
 
         for i, surface_spec in ipairs(team.surfaces or {}) do
             local sname = force_name .. "-s" .. i
+            surface_spec.index = slot * 100 + i
             surfaces[sname] = make_surface(sname, force_name, surface_spec)
         end
 
