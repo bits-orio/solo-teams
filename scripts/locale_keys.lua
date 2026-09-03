@@ -109,6 +109,7 @@ return {
     "mts-cleanup.col-marker-tip",
     "mts-cleanup.col-members",
     "mts-cleanup.col-offline",
+    "mts-cleanup.col-offline-tip",
     "mts-cleanup.col-pick",
     "mts-cleanup.col-playtime",
     "mts-cleanup.col-slot",

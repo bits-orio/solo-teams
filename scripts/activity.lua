@@ -34,4 +34,27 @@ function M.age_color(ticks)
     return M.COLOR_DEAD
 end
 
+local function lerp(a, b, t)
+    return {a[1] + (b[1] - a[1]) * t,
+            a[2] + (b[2] - a[2]) * t,
+            a[3] + (b[3] - a[3]) * t}
+end
+
+-- Where the gradient saturates to full red, as a multiple of the window.
+M.GRADIENT_RED_AT = 4
+
+--- Continuous green -> yellow -> red for "how long has this been idle", scaled
+--- to a window: green at 0, yellow at exactly one window, red at
+--- GRADIENT_RED_AT windows and beyond. The Cleanup panel scales it to the
+--- disband window, so the colour means "how far past eligible" whatever
+--- window the admin runs, and re-centres itself if that window changes.
+function M.age_gradient(ticks, window_ticks)
+    if not window_ticks or window_ticks <= 0 then return M.COLOR_UNKNOWN end
+    local t = ticks / window_ticks
+    if t <= 0 then return M.COLOR_FRESH end
+    if t <= 1 then return lerp(M.COLOR_FRESH, M.COLOR_STALE, t) end
+    if t >= M.GRADIENT_RED_AT then return M.COLOR_DEAD end
+    return lerp(M.COLOR_STALE, M.COLOR_DEAD, (t - 1) / (M.GRADIENT_RED_AT - 1))
+end
+
 return M

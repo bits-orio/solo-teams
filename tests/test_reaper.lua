@@ -968,4 +968,36 @@ do
     check("viewed: nobody spectating, nothing protected", next(chart_sync.viewed_surfaces()) == nil)
 end
 
+-- ─── offline gradient ──────────────────────────────────────────────────
+
+do
+    mock.reset_modules()
+    mock.build{tick = NOW, teams = {}}
+    mock.install_stubs()
+    local activity = require("scripts.activity")
+    local W = DAY
+    local function near(a, b)
+        for i = 1, 3 do if math.abs(a[i] - b[i]) > 1e-9 then return false end end
+        return true
+    end
+    check("gradient: zero is green",             near(activity.age_gradient(0, W), activity.COLOR_FRESH))
+    check("gradient: one window is yellow",      near(activity.age_gradient(W, W), activity.COLOR_STALE))
+    check("gradient: four windows is red",       near(activity.age_gradient(4 * W, W), activity.COLOR_DEAD))
+    check("gradient: beyond stays red",          near(activity.age_gradient(30 * W, W), activity.COLOR_DEAD))
+    check("gradient: no window reads unknown",   activity.age_gradient(W, nil) == activity.COLOR_UNKNOWN)
+
+    -- Redder and less green, monotonically, all the way across.
+    local prev = activity.age_gradient(0, W)
+    local monotone = true
+    for step = 1, 40 do
+        local c = activity.age_gradient(step * W / 10, W)
+        if c[1] < prev[1] - 1e-9 or c[2] > prev[2] + 1e-9 then monotone = false end
+        prev = c
+    end
+    check("gradient: red never falls and green never rises", monotone)
+    local half = activity.age_gradient(W / 2, W)
+    check("gradient: half a window sits between green and yellow",
+        half[1] > activity.COLOR_FRESH[1] and half[1] < activity.COLOR_STALE[1])
+end
+
 return report

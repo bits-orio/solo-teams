@@ -5,6 +5,8 @@ local helpers = require("scripts.helpers")
 local counts  = require("gui.stats.counts")
 local state   = require("gui.cleanup.state")
 local markers = require("scripts.reaper.markers")
+local config  = require("scripts.reaper.config")
+local activity = require("scripts.activity")
 
 local M = {}
 
@@ -30,7 +32,8 @@ local COLUMNS = {
     {caption = {"mts-cleanup.col-team"}},
     {caption = {"mts-cleanup.col-leader"}},
     {caption = {"mts-cleanup.col-members"}},
-    {caption = {"mts-cleanup.col-offline"},  sort = "offline"},
+    {caption = {"mts-cleanup.col-offline"},  sort = "offline",
+     tip = {"mts-cleanup.col-offline-tip"}},
     {caption = {"mts-cleanup.col-playtime"}, sort = "team_hours"},
     {caption = {"mts-cleanup.col-tier1"},    sort = "tier1", icon = markers.tier1},
     {caption = {"mts-cleanup.col-tier2"},    sort = "tier2", icon = markers.tier2},
@@ -45,11 +48,20 @@ local function fmt_offline(row)
     return helpers.fmt_span(row.offline_ticks)
 end
 
+--- Green -> red by how far past the disband window the team is, so the
+--- column reads at a glance without comparing each cell to the threshold.
+local function offline_color(row)
+    if row.connected then return activity.COLOR_FRESH end
+    if not row.offline_ticks then return activity.COLOR_UNKNOWN end
+    return activity.age_gradient(row.offline_ticks, config.offline_ticks())
+end
+
 local function add_sort_button(cell, column, active, ascending)
     local marker = active and (ascending and " \xE2\x96\xB2" or " \xE2\x96\xBC") or ""
     local button = cell.add{
         type    = "button",
         caption = {"", column.caption, marker},
+        tooltip = column.tip,
         tags    = {mts_cleanup_sort = column.sort},
     }
     -- Styled inline rather than via a prototype: a data-stage style would
@@ -130,7 +142,8 @@ local function add_row(tbl, player, row)
 
     tbl.add{type = "label", caption = row.leader_name or "-"}
     tbl.add{type = "label", caption = tostring(row.member_count)}
-    tbl.add{type = "label", caption = fmt_offline(row)}
+    local offline = tbl.add{type = "label", caption = fmt_offline(row)}
+    offline.style.font_color = offline_color(row)
     tbl.add{type = "label", caption = helpers.fmt_span(row.team_ticks or 0)}
     tbl.add{type = "label", caption = counts.fmt(row.tier1 or 0)}
     tbl.add{type = "label", caption = counts.fmt(row.tier2 or 0)}
