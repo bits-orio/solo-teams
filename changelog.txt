@@ -1,4 +1,57 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.3
+Date: 2026-09-02
+  Features:
+    - Team Cleanup panel for admins (button on the Admin panel, or /mts-cleanup). One row per
+      occupied slot with status, offline time, time played, tier-1 and tier-2 science, and
+      entities built. The rows the inactive rule would take are ticked in advance; untick or tick
+      more, sort any column, and "Disband selected" names every team in a confirm before anything
+      happens. A map button beside each team spectates it. Offline time is coloured green to red
+      by how far past the disband window the team is.
+    - Inactive-team check, shipped disarmed. Every six hours it measures each occupied slot and
+      records a verdict; nothing is removed until an admin ticks "Disband flagged teams
+      automatically" in the panel. The rule: every member offline for the configured window
+      (default one day), zero tier-1 science, at least one member. Tier-1 and tier-2 are read from
+      the modpack's own lab inputs by unlock depth and filtered to items something can actually
+      make, so a pack whose labs accept a launch-only pack does not read every team as zero. The
+      check refuses to run, and says why, if it cannot resolve a usable marker.
+    - Shadow evidence for that rule. /mts-reaper report shows how many flagged teams came back
+      online and how often the check agreed with disbands made by hand, so the window can be
+      judged on numbers before arming. /mts-reaper dump writes the full measurement as CSV.
+    - Bulk disband is staged and announced: a red warning to everyone at 60, 30 and 10 seconds and
+      a 3-2-1 countdown, then one red line per team as its teardown starts, one team per
+      quarter-second so the server never deletes twenty surfaces in a single tick. Cancelling is
+      broadcast too. When the automatic check queues a sweep, every admin online gets a dialog
+      naming the teams with "Stop the sweep" and "Let it run".
+    - Teams panel: every offline member now shows how long they have been gone ("2d 5h ago"),
+      coloured by age, and every member shows total time played, so a leader can tell which of
+      five members are the three who stopped showing up. Hovering a row shows a card with the
+      name, status, full time played, and a note that idle time counts.
+  Changes:
+    - Thresholds for the inactive-team check live in the save and are edited from the Cleanup
+      panel, not in Mod Settings, because Mod Settings are visible to every player.
+    - Production Stats: items nothing in the pack can produce now sort last instead of first in
+      the auto-discovered tabs. On packs without Space Age this moves space-science-pack to the
+      end of the Science tab.
+    - Team production is banked before retire_team_surface removes a surface, so a team that
+      warped (MTS Dimension Warp) keeps its history for the inactive-team check.
+    - A member whose team was disbanded while they were offline is told so on their next join,
+      and lands in the landing pen.
+  Bugfixes:
+    - Spectating a dormant team showed a black screen. Chart sharing pushes a team's map into the
+      spectator force's own chart, and the periodic chart cleanup wiped that chart on every planet
+      surface, so a team with nobody online and no radars never re-sent it. Spectating from the
+      Cleanup panel now requests every chunk the team has charted, and the cleanup leaves alone
+      any surface a spectator is currently viewing.
+    - "Last seen" for a member whose client crashed, or who was online when the server restarted,
+      read as "never seen". It now falls back to the engine's own last-online tick.
+    - /mts-disband, the Cleanup panel and the automatic check share one teardown, so members,
+      surfaces and the freed slot are handled identically whichever path removes a team.
+  Info:
+    - A headless test harness under tests/ (not shipped in the mod) runs the inactive-team rule,
+      the marker resolution and the teardown paths under the same Lua 5.2 Factorio embeds, and
+      replays a real server audit through the shipped code.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.2
 Date: 2026-08-31
   Info:
