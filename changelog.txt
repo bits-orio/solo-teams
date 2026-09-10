@@ -1,6 +1,6 @@
 ---------------------------------------------------------------------------------------------------
 Version: 0.7.0
-Date: 2026-09-09
+Date: 2026-09-10
   Changes:
     - Factorio 2.1 line. Requires Factorio 2.1; the 0.6.x releases stay on Factorio 2.0.
     - Ported the APIs 2.1 removed: power sources are frozen through disabled_by_script, script-placed
