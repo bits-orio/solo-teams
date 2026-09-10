@@ -85,6 +85,10 @@ jobs:
             }
             /^Version: / {
               if (prev != "" && $2 == prev) { exit }
+              # No previous release on this line (first release of a new
+              # line): the newest entry alone is the release, stop at the
+              # second header instead of walking the whole file.
+              if (prev == "" && collecting) { exit }
               collecting = 1
               print "### " $0
               next

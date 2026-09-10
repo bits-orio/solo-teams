@@ -46,7 +46,7 @@ The portal keeps both: each release carries its own `factorio_version`, the in-g
 
 - Portal upload failed: the tag and GitHub release stand; re-run the "Upload to Mod Portal" workflow, it is idempotent.
 - Wrong changelog on the portal page: release order was reversed; re-run the 2.1 tag's page sync (`tools/sync_portal_details.sh` from the branch) or the "Sync Portal Details" workflow.
-- Release notes contain the whole changelog: the previous release on that line was not found (first release on a line, or the tag prefix changed); harmless, edit the GitHub release text.
+- Release notes contain more than one entry: the previous release on that line was not found (the tag prefix changed, or the release list is missing it). The first release of a new line takes its newest entry alone. Edit the GitHub release text if it happens.
 
 ## When 2.1 becomes stable
 
