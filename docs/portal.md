@@ -10,6 +10,8 @@ It carries the spirit of the OARC separated-spawns mods, rebuilt from scratch fo
 
 ## Status
 
+Two release lines while Factorio 2.1 is experimental: 0.6.x for Factorio 2.0 (stable), 0.7.x for Factorio 2.1.
+
 In active use on public servers. Team cap is 20 with Space Age, where each team gets a whole solar system, and 60 without. Every team plays the same terrain by design: one world generation, mirrored to every team surface. That is what lets terrain mods decorate all of them without cooperating with MTS, and what puts every team on an identical map when they race. Localized per player into English, Spanish, Russian and German, so mixed-language servers just work.
 
 ## Quick start
@@ -41,7 +43,7 @@ In active use on public servers. Team cap is 20 with Space Age, where each team 
 
 ## Compatibility
 
-Requires Factorio 2.0. Space Age is optional and auto-detected. Verified against dangOreus, VoidBlock, Alien Biomes, [Periodic Madness](https://mods.factorio.com/mod/periodic-madness), [Krastorio 2](https://mods.factorio.com/mod/Krastorio2) and [Platformer](https://mods.factorio.com/mod/platformer).
+Requires Factorio 2.0 (releases 0.6.x) or Factorio 2.1 (releases 0.7.x); the in-game mod browser shows the one that matches your game. Space Age is optional and auto-detected. Verified against dangOreus, VoidBlock, Alien Biomes, [Periodic Madness](https://mods.factorio.com/mod/periodic-madness), [Krastorio 2](https://mods.factorio.com/mod/Krastorio2) and [Platformer](https://mods.factorio.com/mod/platformer).
 
 Mod authors: Multi-Team Support exposes a versioned `mts-v1` remote interface and custom events, so you can integrate without a per-mod compatibility shim. See the [remote API contract](https://github.com/bits-orio/multi-team-support/blob/master/scripts/remote_api.lua) and the [compatibility strategy notes](https://github.com/bits-orio/multi-team-support/blob/master/docs/COMPAT.md). The [full command reference](https://github.com/bits-orio/multi-team-support/blob/master/README.md) lives in the repo.
 

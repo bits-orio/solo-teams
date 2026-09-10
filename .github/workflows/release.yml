@@ -27,8 +27,10 @@ jobs:
         run: |
           NAME=$(jq -r .name info.json)
           VERSION=$(jq -r .version info.json)
+          FACTORIO_VERSION=$(jq -r .factorio_version info.json)
           echo "name=${NAME}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "factorio_version=${FACTORIO_VERSION}" >> "$GITHUB_OUTPUT"
           echo "folder=${NAME}_${VERSION}" >> "$GITHUB_OUTPUT"
 
       # Fetch the tag of the most recent PUBLISHED release (not just the most
@@ -39,20 +41,27 @@ jobs:
       # We also explicitly EXCLUDE the tag being pushed: if this is a re-push
       # of an already-released tag, /releases/latest can return the same tag
       # we're processing (which makes release notes collapse to empty).
+      #
+      # Two release lines run side by side (0.6.x for Factorio 2.0 on master,
+      # 0.7.x for 2.1 on factorio-2.1, see docs/RELEASING.md), so "previous"
+      # means the newest published release on the SAME line: same
+      # vMAJOR.MINOR. prefix as the tag being released. Without this, a 0.6.x
+      # release after a 0.7.x one would walk the whole changelog.
       - name: Fetch previous published release
         id: prev
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           CURRENT_TAG="${GITHUB_REF_NAME}"
-          PREV_TAG=$(gh api "repos/${{ github.repository }}/releases" \
-            --jq "[.[] | select(.tag_name != \"${CURRENT_TAG}\") | select(.draft == false)][0].tag_name // \"\"" \
+          LINE_PREFIX="$(echo "${CURRENT_TAG}" | sed -E 's/^(v[0-9]+\.[0-9]+)\..*/\1./')"
+          PREV_TAG=$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq "[.[] | select(.tag_name != \"${CURRENT_TAG}\") | select(.draft == false) | select(.tag_name | startswith(\"${LINE_PREFIX}\"))][0].tag_name // \"\"" \
             2>/dev/null || true)
           PREV_VERSION="${PREV_TAG#v}"
           echo "tag=${PREV_TAG}"          >> "$GITHUB_OUTPUT"
           echo "version=${PREV_VERSION}"  >> "$GITHUB_OUTPUT"
-          echo "Current tag: '${CURRENT_TAG}'"
-          echo "Previous published release: '${PREV_TAG}' (version '${PREV_VERSION}')"
+          echo "Current tag: '${CURRENT_TAG}' (line ${LINE_PREFIX}x)"
+          echo "Previous published release on this line: '${PREV_TAG}' (version '${PREV_VERSION}')"
 
       # Extract all changelog entries for versions in the range
       # (prev_published, current]. If prev is empty (very first release),
@@ -161,11 +170,12 @@ jobs:
           # assignment prematurely and the rest becomes bash commands.
           # Env vars go through the OS environment — no bash parsing pitfalls.
           RELEASE_VERSION: ${{ steps.info.outputs.version }}
+          FACTORIO_VERSION: ${{ steps.info.outputs.factorio_version }}
           RELEASE_URL:     ${{ steps.release.outputs.url }}
           RELEASE_NOTES:   ${{ steps.notes.outputs.notes }}
         run: |
           PAYLOAD=$(jq -n \
-            --arg title "Multi-Team Support v${RELEASE_VERSION} Released!" \
+            --arg title "Multi-Team Support v${RELEASE_VERSION} for Factorio ${FACTORIO_VERSION} Released!" \
             --arg desc  "$RELEASE_NOTES" \
             --arg url   "$RELEASE_URL" \
             '{
@@ -241,12 +251,13 @@ jobs:
         if: ${{ steps.upload.outcome == 'success' && env.DISCORD_ANNOUNCEMENTS_WEBHOOK != '' }}
         env:
           RELEASE_VERSION: ${{ steps.info.outputs.version }}
+          FACTORIO_VERSION: ${{ steps.info.outputs.factorio_version }}
           MOD_NAME: ${{ steps.info.outputs.name }}
         run: |
           PORTAL_URL="https://mods.factorio.com/mod/${MOD_NAME}"
           PAYLOAD=$(jq -n \
-            --arg title "Multi-Team Support v${RELEASE_VERSION} is live on the mod portal" \
-            --arg desc  "Download or update in-game from the mods menu." \
+            --arg title "Multi-Team Support v${RELEASE_VERSION} for Factorio ${FACTORIO_VERSION} is live on the mod portal" \
+            --arg desc  "Download or update in-game from the mods menu (Factorio ${FACTORIO_VERSION})." \
             --arg url   "$PORTAL_URL" \
             '{
               embeds: [{

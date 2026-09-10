@@ -5,8 +5,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INFO="$SCRIPT_DIR/info.json"
 
 NAME=$(grep -o '"name": *"[^"]*"' "$INFO" | head -1 | sed 's/.*"\([^"]*\)"/\1/')
-VERSION=$(grep -o '"version": *"[^"]*"' "$INFO" | head -1 | sed 's/.*"\([^"]*\)"/\1/')
-LINK_NAME="${NAME}_${VERSION}"
+# Unversioned folder name: Factorio accepts either "<name>" or
+# "<name>_<version>" for an unpacked mod, and refuses "<name>_<version>" when
+# the version differs from info.json. With two release lines (master at 0.6.x,
+# factorio-2.1 at 0.7.x) sharing one working tree, only the unversioned name
+# survives a branch switch.
+LINK_NAME="${NAME}"
 
 MOD_DIRS=(
     "$HOME/factorio/mods"
@@ -21,8 +25,9 @@ for dir in "${MOD_DIRS[@]}"; do
         continue
     fi
 
-    # Remove old symlinks pointing to this mod
-    for link in "$dir/${NAME}_"*; do
+    # Remove old symlinks pointing to this mod (versioned names from before,
+    # and any stale unversioned one)
+    for link in "$dir/${NAME}_"* "$dir/${NAME}"; do
         if [[ -L "$link" ]]; then
             echo "Removing old link: $link"
             rm "$link"
