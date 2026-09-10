@@ -1,6 +1,6 @@
 -- Multi-Team Support - data.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Custom sprites for the welcome GUI.
 -- Pattern follows RedMew (redmew-data): type="sprite", flags={"not-compressed"},
@@ -45,3 +45,6 @@ require("prototypes.entities.passive-radar")
 -- entity, and MTS otherwise has no guaranteed per-team one. Ensured lazily by
 -- scripts/pause/notify.lua. See the file header.
 require("prototypes.entities.alert-anchor")
+
+-- Chat mode switch segment-button styles (gui/chat_switch.lua).
+require("prototypes.styles")

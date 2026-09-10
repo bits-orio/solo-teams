@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/remote_api.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Public remote interface ("mts-v1") + custom events for third-party mods
 -- that need to integrate with multi-team-support (e.g. chunk-gen mods like
@@ -32,6 +32,7 @@ local surface_utils = require("scripts.surface_utils")
 local helpers       = require("scripts.helpers")
 local team_clock    = require("scripts.team_clock")
 local spawn_labels  = require("scripts.spawn_labels")
+local pop_text      = require("scripts.pop_text")
 -- pause/control has no require cycle (it pulls only pause/power|wires|state),
 -- so it is required directly here.
 local pause_control = require("scripts.pause.control")
@@ -292,6 +293,7 @@ local BRIDGE_LABELS = {
     rocket_launched      = "🚀",
     team_paused          = "⏸️",
     team_resumed         = "▶️",
+    chat                 = "💬",
 }
 
 --- Emit an arbitrary event to the bridge (no-op if the bridge isn't installed). Fills in
@@ -328,11 +330,15 @@ function remote_api.register_with_bridge()
             { key = "rocket_launched",      description = "A team launched a rocket" },
             { key = "team_paused",          description = "A team was paused by an admin" },
             { key = "team_resumed",         description = "A team was resumed by an admin" },
+            { key = "chat",                 description = "A chat message (global channel only)" },
         },
     })
     -- We announce these ourselves with team info, so turn off the bridge's team-less
     -- baseline versions. The bridge only suppresses a baseline event while we're loaded.
-    for _, key in ipairs({ "research_finished", "player_joined", "player_left", "rocket_launched" }) do
+    -- "chat" is here for privacy, not enrichment: the bridge's baseline captures EVERY
+    -- message, but team-only channel messages (scripts/chat_channel.lua) must never
+    -- reach Discord — events/chat.lua emits the bridge copy for global messages only.
+    for _, key in ipairs({ "research_finished", "player_joined", "player_left", "rocket_launched", "chat" }) do
         remote.call(BRIDGE_INTERFACE, "set_baseline", { event = key, enabled = false })
     end
 end
@@ -637,6 +643,22 @@ local function connection_text(verb, player)
     return string.format("%s %s", player.name, verb)
 end
 
+--- Bridge copy of a chat message. The bridge's baseline chat capture is
+--- disabled (register_with_bridge) so team-only messages never reach
+--- Discord; every message that SHOULD bridge — global channel, "!" shouts,
+--- spectator and server-console chatter — flows through here instead.
+--- force_name is the author's team (nil for spectators / the server).
+function remote_api.emit_chat(author_name, message, force_name)
+    local team = is_team_force_name(force_name)
+        and helpers.team_display(force_name) or nil
+    remote_api.emit_to_bridge("mts.chat", {
+        player = author_name,
+        team   = team,
+        text   = (team and (author_name .. " [" .. team .. "]") or author_name)
+            .. ": " .. message,
+    })
+end
+
 function remote_api.emit_player_joined(player)
     if not (player and player.valid) then return end
     local fn = player.force and player.force.name
@@ -871,6 +893,48 @@ function remote_api.register()
         get_team_info      = get_team_info_impl,
         is_team_surface    = is_team_surface_impl,
         get_surface_owner  = get_surface_owner_impl,
+
+        -- The planet a surface represents: the engine planet when set, else
+        -- the base planet a team variant derives from, else nil. Lets
+        -- consumers group per-team surface copies of one planet without
+        -- parsing MTS's surface names themselves.
+        get_surface_planet = function(surface_name)
+            if type(surface_name) ~= "string" then return nil end
+            return surface_utils.represented_planet(game.surfaces[surface_name])
+        end,
+
+        -- The team's coloured tag WITHOUT the leader suffix, for places a
+        -- consumer wants the name alone (chat lines, compact labels).
+        -- get_team_label is the same thing plus " [leader]".
+        get_team_tag = function(force_name)
+            if type(force_name) ~= "string" then return nil end
+            return helpers.team_tag(force_name)
+        end,
+
+        -- Animated pop-up text, MTS's own celebration presets, offered to
+        -- consumers so a companion mod's milestones look native rather
+        -- than reinventing the animation:
+        --   preset "milestone"        -> elastic pop above each member of
+        --                                `force_name` (a team achievement)
+        --   preset "global_milestone" -> rainbow pop above EVERY connected
+        --                                player (server-wide news)
+        -- Respects the host's popup_text_enabled admin flag. Returns true
+        -- when a popup was requested. Rich text is supported.
+        popup_text = function(args)
+            if type(args) ~= "table" or type(args.text) ~= "string" then return false end
+            local preset = args.preset or "milestone"
+            if preset == "global_milestone" then
+                pop_text.global_milestone(args.text)
+                return true
+            end
+            if preset == "milestone" then
+                local force = args.force_name and game.forces[args.force_name]
+                if not (force and force.valid) then return false end
+                pop_text.milestone(force, args.text)
+                return true
+            end
+            return false
+        end,
         list_team_surfaces = list_team_surfaces_impl,
         get_starter_items  = get_starter_items_impl,
 

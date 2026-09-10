@@ -1,6 +1,6 @@
 -- Multi-Team Support - helpers.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Shared utility functions used across all modules.
 -- Eliminates duplicated patterns and provides canonical answers to
@@ -147,6 +147,44 @@ function helpers.team_slot(name)
     return tonumber(name:match("^team%-(%d+)$"))
 end
 
+-- ─── Duration Formatting ───────────────────────────────────────────────
+
+--- Convert a tick count to a human-readable duration string ("1h 23m 45s").
+function helpers.fmt_duration(ticks)
+    local s = math.floor(ticks / 60)
+    local h = math.floor(s / 3600); s = s % 3600
+    local m = math.floor(s / 60);   s = s % 60
+    if h > 0 then return string.format("%dh %02dm %02ds", h, m, s) end
+    if m > 0 then return string.format("%dm %02ds", m, s) end
+    return string.format("%ds", s)
+end
+
+--- Minute-resolution variant ("1h 23m") for displays refreshed on a slow
+--- cadence (spawn labels), where a stale seconds digit would look broken.
+--- Rounds to the NEAREST minute: floor plus refresh staleness read almost
+--- two minutes behind near a minute boundary, which players notice.
+function helpers.fmt_duration_coarse(ticks)
+    local m = math.floor(ticks / 3600 + 0.5)
+    local h = math.floor(m / 60); m = m % 60
+    if h > 0 then return string.format("%dh %02dm", h, m) end
+    return string.format("%dm", m)
+end
+
+--- Day-resolution span for tables that compare long absences: "4d 7h",
+--- "7h 10m", "26m", "<1m". Minutes drop out once a span has hours, hours once
+--- it has days, so a column of these scans at a glance.
+function helpers.fmt_span(ticks)
+    local m = math.floor(ticks / 3600)
+    local h = math.floor(m / 60); m = m % 60
+    local d = math.floor(h / 24); h = h % 24
+    if d >= 1 then
+        return h > 0 and string.format("%dd %dh", d, h) or string.format("%dd", d)
+    end
+    if h >= 1 then return string.format("%dh %dm", h, m) end
+    if m >= 1 then return string.format("%dm", m) end
+    return "<1m"
+end
+
 -- ─── Force Helpers ─────────────────────────────────────────────────────
 
 --- Get the display name for a force.
@@ -175,6 +213,21 @@ function helpers.display_surface_name(surface_name)
         return base:sub(1, 1):upper() .. base:sub(2)
     end
     return surface_name
+end
+
+--- LocalisedString twin of display_surface_name: resolves the base planet's
+--- own localised name where a space-location prototype exists, falling back
+--- to the English-side capitalisation for surfaces without one. Use only as
+--- a display parameter — Discord/log paths keep the plain twin.
+function helpers.ls_display_surface_name(surface_name)
+    local plain = helpers.display_surface_name(surface_name)
+    if not surface_name then return plain end
+    local base = surface_name:match("^mts%-(.+)%-%d+$")
+        or surface_name:match("^team%-%d+%-(.+)$")
+    if base then
+        return {"?", {"space-location-name." .. base}, plain}
+    end
+    return plain
 end
 
 --- Get the team name for use in chat announcements. Always prefixed with
@@ -269,6 +322,15 @@ function helpers.colored_name(name, color)
         name)
 end
 
+--- colored_name for LocalisedStrings: string.format would render a table as
+--- "table: 0x...", so the color tags wrap the value as siblings instead.
+function helpers.ls_colored(ls, color)
+    return {"", string.format("[color=%.2f,%.2f,%.2f]",
+        color.r or color[1] or 1,
+        color.g or color[2] or 1,
+        color.b or color[3] or 1), ls, "[/color]"}
+end
+
 -- ─── Time Formatting ───────────────────────────────────────────────────
 
 --- Format an elapsed tick count into a human-readable string.
@@ -291,9 +353,90 @@ function helpers.format_elapsed(ticks)
     end
 end
 
+-- ─── Localised Duration Formatting ─────────────────────────────────────
+-- LocalisedString twins of the plain-string formatters above, built on the
+-- engine's own root-scope core keys (time-symbol-hours-short=__1__h etc.),
+-- which ship translated in every base-game language. In English they render
+-- byte-identical to their plain twins. The plain formatters stay: Discord
+-- bridge payloads and log lines must remain plain strings (a
+-- LocalisedString cannot leave the game).
+
+--- LocalisedString twin of fmt_duration ("1h 02m 03s").
+function helpers.ls_duration(ticks)
+    local s = math.floor(ticks / 60)
+    local h = math.floor(s / 3600); s = s % 3600
+    local m = math.floor(s / 60);   s = s % 60
+    if h > 0 then
+        return {"", {"time-symbol-hours-short", h}, " ",
+                    {"time-symbol-minutes-short", string.format("%02d", m)}, " ",
+                    {"time-symbol-seconds-short", string.format("%02d", s)}}
+    end
+    if m > 0 then
+        return {"", {"time-symbol-minutes-short", m}, " ",
+                    {"time-symbol-seconds-short", string.format("%02d", s)}}
+    end
+    return {"time-symbol-seconds-short", s}
+end
+
+--- LocalisedString twin of fmt_duration_coarse ("1h 23m" / "23m").
+function helpers.ls_duration_coarse(ticks)
+    local m = math.floor(ticks / 3600 + 0.5)
+    local h = math.floor(m / 60); m = m % 60
+    if h > 0 then
+        return {"", {"time-symbol-hours-short", h}, " ",
+                    {"time-symbol-minutes-short", string.format("%02d", m)}}
+    end
+    return {"time-symbol-minutes-short", m}
+end
+
+--- LocalisedString twin of format_elapsed ("1h 5m" / "5m 3s" / "42s").
+function helpers.ls_elapsed(ticks)
+    if not ticks or ticks < 0 then return "?" end
+    local total_seconds = math.floor(ticks / 60)
+    local hours = math.floor(total_seconds / 3600)
+    local mins  = math.floor((total_seconds % 3600) / 60)
+    local secs  = total_seconds % 60
+    if hours > 0 then
+        return {"", {"time-symbol-hours-short", hours}, " ",
+                    {"time-symbol-minutes-short", mins}}
+    elseif mins > 0 then
+        return {"", {"time-symbol-minutes-short", mins}, " ",
+                    {"time-symbol-seconds-short", secs}}
+    else
+        return {"time-symbol-seconds-short", secs}
+    end
+end
+
+--- Join a list of strings/LocalisedStrings with a separator into one
+--- LocalisedString. The engine caps localised strings at 20 parameters and
+--- 20 nesting levels, so items are grouped bottom-up, then the groups
+--- grouped again: depth grows with the log of the item count, never
+--- linearly. Canonical version of the per-module ls_join locals the
+--- conversion slices grew independently.
+function helpers.ls_join(items, sep)
+    local parts = {}
+    for i, item in ipairs(items) do
+        parts[i] = i == 1 and item or {"", sep, item}
+    end
+    while #parts > 1 do
+        local grouped = {}
+        for i = 1, #parts, 20 do
+            local group = {""}
+            for j = i, math.min(i + 19, #parts) do
+                group[#group + 1] = parts[j]
+            end
+            grouped[#grouped + 1] = group
+        end
+        parts = grouped
+    end
+    return parts[1] or ""
+end
+
 -- ─── Broadcast ─────────────────────────────────────────────────────────
 
---- Print a message to all connected players.
+--- Print a message to all connected players. `msg` may be a plain string
+--- or a LocalisedString table — p.print accepts both, and a LocalisedString
+--- resolves in each player's own language.
 function helpers.broadcast(msg)
     for _, p in pairs(game.players) do
         if p.connected then p.print(msg) end
@@ -365,7 +508,7 @@ function helpers.add_show_offline_checkbox(parent, player)
     flow.style.horizontal_align         = "right"
     flow.style.horizontally_stretchable = true
     flow.style.bottom_margin            = 2
-    local label = flow.add{type = "label", caption = "show offline"}
+    local label = flow.add{type = "label", caption = {"mts-gui.show-offline"}}
     label.style.font         = "default-small"
     label.style.font_color   = {0.6, 0.6, 0.6}
     label.style.right_margin = 4
@@ -373,9 +516,59 @@ function helpers.add_show_offline_checkbox(parent, player)
         type    = "checkbox",
         name    = "sb_show_offline_toggle",
         state   = show_offline,
-        tooltip = show_offline and "Hide offline teams" or "Show offline teams",
+        tooltip = show_offline and {"mts-gui.hide-offline-teams"}
+                               or {"mts-gui.show-offline-teams"},
     }
     return flow
+end
+
+--- Display name for a technology, with its level where the engine omits one.
+---
+--- The engine builds localised_name in one of two shapes, and only one of
+--- them needs help:
+---
+---   max_level == level   {"", {"technology-name.refined-flammables"}, " 6"}
+---   max_level >  level   {"technology-name.mining-productivity"}
+---
+--- A single-level technology already carries its number, so appending one
+--- gave "Refined flammables 6 6". Only a multi-level family -- vanilla's
+--- mining and research productivity, Land Title Registry's land-grant
+--- ladder -- arrives as a bare family name, which is why eight land-grant
+--- tiers all rendered identically.
+---
+--- Which number to add depends on what the caller holds, and the two
+--- callers genuinely want different levels, because MTS records the two
+--- ends of a multi-level family in two different places:
+---
+---   tech_research_ticks[force][name]  overwritten every level -> LAST
+---   records entries[force]            set on the first call   -> FIRST
+---
+--- So given a force's LuaTechnology (the research GUIs, which read the
+--- tick) the answer is the level that force last COMPLETED -- tech.level is
+--- the level it would research NEXT, so it overshoots by one until the
+--- family is finished. Given only a prototype (the awards list, which reads
+--- the record) the answer is the family's STARTING level, because that is
+--- the only level whose completion that record describes. Labelling that
+--- row with the span it covers would claim a tier completion nobody
+--- recorded.
+---@param tech LuaTechnology|LuaTechnologyPrototype
+---@return LocalisedString
+function helpers.tech_label(tech)
+    local runtime = tech.object_name == "LuaTechnology"
+    local proto   = runtime and tech.prototype or tech
+    if proto.max_level <= proto.level then return tech.localised_name end
+
+    local label
+    if runtime then
+        local done = tech.researched and tech.level or (tech.level - 1)
+        -- Nothing finished in this family yet: labelling a tier that starts
+        -- at 21 with "20" would be a lie, so leave the bare name.
+        if done < proto.level then return tech.localised_name end
+        label = done
+    else
+        label = proto.level
+    end
+    return { "", tech.localised_name, " ", label }
 end
 
 return helpers

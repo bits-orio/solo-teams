@@ -1,6 +1,6 @@
 -- Multi-Team Support - tech_records.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Tracks first/fastest research records per technology across all teams.
 -- Announces "first to research" and "new speed record" to all players.
@@ -13,6 +13,7 @@ local helpers       = require("scripts.helpers")
 local force_utils   = require("scripts.force_utils")
 local planet_map    = require("scripts.planet_map")
 local pop_text      = require("scripts.pop_text")
+local team_modifiers = require("scripts.team_modifiers")
 
 local tech_records = {}
 
@@ -57,24 +58,23 @@ function tech_records.on_research_finished(event)
     local team_tag = helpers.team_tag(force.name)
     local tech_tag = helpers.tech_rich_name(tech.name)
 
+    -- The records_tag() parameter carries a non-competitive tag while that
+    -- mode is on, so records earned under uneven settings wear an asterisk.
     if result.is_first then
-        helpers.broadcast(string.format(
-            "[Records] %s was the first to research %s!",
-            team_tag, tech_tag
-        ))
-        pop_text.milestone(force, "First!\n[technology=" .. tech.name .. "]")
+        helpers.broadcast({"mts-milestone.first-research",
+            team_modifiers.ls_records_tag(), team_tag, tech_tag})
+        pop_text.milestone(force, {"mts-milestone.popup-first", tech_tag})
     elseif result.is_fastest then
         local prev = result.previous_fastest
         local new_entry = storage.tech_records[tech.name].fastest
-        helpers.broadcast(string.format(
-            "[Records] %s is fastest to research %s in %s (previous record: %s in %s)",
+        helpers.broadcast({"mts-milestone.record-research",
+            team_modifiers.ls_records_tag(),
             team_tag,
             tech_tag,
-            helpers.format_elapsed(new_entry.elapsed),
+            helpers.ls_elapsed(new_entry.elapsed),
             helpers.team_tag(prev.team),
-            helpers.format_elapsed(prev.elapsed)
-        ))
-        pop_text.milestone(force, "New record!\n[technology=" .. tech.name .. "]")
+            helpers.ls_elapsed(prev.elapsed)})
+        pop_text.milestone(force, {"mts-milestone.popup-record", tech_tag})
     end
     return true
 end

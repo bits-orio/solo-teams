@@ -10,6 +10,7 @@ local follow_cam    = require("gui.follow_cam")
 local friendship    = require("gui.friendship")
 local teams_data    = require("gui.teams_data")
 local team_card     = require("gui.team_card")
+local team_modifiers = require("scripts.team_modifiers")
 local team_pins     = require("scripts.team_pins")
 
 local teams_gui = {}
@@ -24,14 +25,16 @@ function teams_gui.build_gui(player)
     local frame = helpers.reuse_or_create_frame(
         player, "sb_platforms_frame", storage.gui_location, {x = 5, y = 400})
 
-    local title_bar = helpers.add_title_bar(frame, "Teams")
+    local title = team_modifiers.is_active() and {"mts-gui.teams-title-noncompetitive"}
+                                             or  {"mts-gui.teams-title"}
+    local title_bar = helpers.add_title_bar(frame, title)
     title_bar.style.horizontal_spacing = 8
     title_bar.add{
         type    = "sprite-button",
         name    = "sb_platforms_close",
         sprite  = "utility/close",
         style   = "close_button",
-        tooltip = "Close panel",
+        tooltip = {"mts-tip.close-panel"},
     }
 
     frame.style.maximal_height = 900
@@ -80,7 +83,7 @@ function teams_gui.build_gui(player)
     end
 
     if visible_count == 0 then
-        local none = scroll.add{type = "label", caption = "No teams yet."}
+        local none = scroll.add{type = "label", caption = {"mts-gui.teams-empty"}}
         none.style.font_color = {0.7, 0.7, 0.7}
     end
 end
@@ -96,6 +99,7 @@ end
 -- Re-export in-place updaters so events/ticks.lua keeps its existing calls.
 teams_gui.update_activity_labels_all  = team_card.update_activity_labels_all
 teams_gui.update_queue_progress_all   = team_card.update_queue_progress_all
+teams_gui.update_clock_labels_all     = team_card.update_clock_labels_all
 
 -- ─── Click Handlers ────────────────────────────────────────────────────
 
@@ -124,6 +128,10 @@ local function on_spectate_click(player, tags)
         spectator.enter_friend_view(player, surface, position)
     end
 end
+
+-- Public so the admin Cleanup panel can spectate a team through the exact
+-- same path the card uses (leader position, friend-view vs full spectate).
+teams_gui.spectate_from_tags = on_spectate_click
 
 local function on_follow_cam_toggle(player, tags)
     if not tags.target_idx then return end
@@ -194,6 +202,8 @@ function teams_gui.on_player_created(player)
     nav.add_top_button(player, {
         name    = "sb_platforms_btn",
         sprite  = "utility/gps_map_icon",
+        -- TODO(locale-stage5): nav.add_top_button persists this tooltip in
+        -- storage.nav_button_order; stays plain until storage migrates.
         tooltip = "Teams",
     })
 end

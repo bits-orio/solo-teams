@@ -4,6 +4,8 @@
 local helpers        = require("scripts.helpers")
 local nav            = require("gui.nav")
 local admin_flags    = require("scripts.admin_flags")
+local starter_scope = require("scripts.starter_scope")
+local team_modifiers = require("scripts.team_modifiers")
 local pen_info_panel = require("gui.pen_info_panel")
 
 local admin_gui = {}
@@ -14,6 +16,7 @@ admin_gui.get_flags                 = admin_flags.get_flags
 admin_gui.flag                      = admin_flags.flag
 admin_gui.buddy_team_limit          = admin_flags.buddy_team_limit
 admin_gui.get_flag_label            = admin_flags.get_flag_label
+admin_gui.ls_get_flag_label         = admin_flags.ls_get_flag_label
 admin_gui.get_starter_items         = admin_flags.get_starter_items
 admin_gui.auto_populate_starter_items = admin_flags.auto_populate_starter_items
 admin_gui.insert_starter_item       = admin_flags.insert_starter_item
@@ -41,21 +44,34 @@ function admin_gui.build_admin_gui(player)
     local frame = helpers.reuse_or_create_frame(
         player, "sb_admin_frame", storage.admin_gui_location, {x = 270, y = 200})
 
-    local title_bar = helpers.add_title_bar(frame, "Admin")
+    local title_bar = helpers.add_title_bar(frame, {"mts-gui.admin-title"})
     title_bar.add{
         type    = "sprite-button",
         name    = "sb_admin_close",
         sprite  = "utility/close",
         style   = "close_button",
-        tooltip = "Close panel",
+        tooltip = {"mts-tip.close-panel"},
     }
     frame.style.minimal_width = 280
+
+    -- Opens the Cleanup panel. Deliberately a bare button with no require of
+    -- gui.cleanup: that module reaches gui.teams, which requires this file, so
+    -- requiring it here would close a load-time cycle. gui/cleanup.lua claims
+    -- the click by name through gui.nav instead.
+    local cleanup_row = frame.add{type = "flow", direction = "horizontal"}
+    cleanup_row.style.top_margin = 4
+    cleanup_row.add{
+        type    = "button",
+        name    = "sb_admin_cleanup_btn",
+        caption = {"mts-cleanup.open-button"},
+        tooltip = {"mts-cleanup.open-tip"},
+    }
 
     local tabs = frame.add{type = "tabbed-pane", name = "sb_admin_tabs"}
     tabs.style.top_margin = 4
 
     -- ── Feature Flags tab ────────────────────────────────────────────────
-    local flags_tab     = tabs.add{type = "tab", caption = "Feature Flags"}
+    local flags_tab     = tabs.add{type = "tab", caption = {"mts-gui.tab-feature-flags"}}
     local flags_content = tabs.add{type = "flow", direction = "vertical",
         name = "sb_admin_flags_content"}
     flags_content.style.left_padding    = 8
@@ -74,9 +90,9 @@ function admin_gui.build_admin_gui(player)
             type    = "checkbox",
             state   = flags[def.key] == true,
             tags    = {sb_admin_flag = def.key},
-            tooltip = def.tooltip,
+            tooltip = def.ls_tooltip,
         }
-        local lbl = row.add{type = "label", caption = def.label, tooltip = def.tooltip}
+        local lbl = row.add{type = "label", caption = def.ls_label, tooltip = def.ls_tooltip}
         lbl.style.minimal_width = 160
     end
 
@@ -87,8 +103,8 @@ function admin_gui.build_admin_gui(player)
         limit_row.style.horizontal_spacing = 8
         local limit_lbl = limit_row.add{
             type    = "label",
-            caption = "Max team size",
-            tooltip = "Maximum number of players allowed in a team via buddy join. Only enforced at join time.",
+            caption = {"mts-gui.max-team-size"},
+            tooltip = {"mts-tip.max-team-size"},
         }
         limit_lbl.style.minimal_width = 160
         local items = {}
@@ -101,12 +117,71 @@ function admin_gui.build_admin_gui(player)
             name           = "sb_buddy_team_limit",
             items          = items,
             selected_index = current_limit - BUDDY_TEAM_LIMIT_MIN + 1,
-            tooltip        = "Maximum number of players allowed in a team via buddy join.",
+            tooltip        = {"mts-tip.max-team-size-dropdown"},
         }
     end
 
+    -- ── Team modifiers (visible only in non-competitive mode) ────────────
+    if flags.non_competitive_enabled then
+        flags_content.add{type = "line"}.style.top_margin = 4
+        local mod_hdr = flags_content.add{
+            type    = "label",
+            caption = {"mts-gui.team-modifiers-header"},
+        }
+        mod_hdr.style.font       = "default-bold"
+        mod_hdr.style.font_color = team_modifiers.MODE_COLOR
+        flags_content.add{type = "label",
+            caption = {"mts-gui.team-modifiers-hint"},
+        }.style.font_color = {0.6, 0.6, 0.6}
+
+        for _, def in ipairs(team_modifiers.MODIFIERS) do
+            local def_lbl = flags_content.add{
+                type    = "label",
+                caption = def.ls_label,
+                tooltip = def.ls_tooltip,
+            }
+            def_lbl.style.font       = "default-bold"
+            def_lbl.style.top_margin = 2
+
+            local any_team = false
+            -- force_utils.max_teams() is off-limits here (require cycle via
+            -- spectator -> gui.admin), so read the startup setting directly.
+            for i = 1, settings.startup["mts_max_teams"].value do
+                if (storage.team_pool or {})[i] == "occupied" then
+                    any_team = true
+                    local force_name = "team-" .. i
+                    local row = flags_content.add{type = "flow", direction = "horizontal"}
+                    row.style.vertical_align     = "center"
+                    row.style.horizontal_spacing = 8
+                    row.add{
+                        type    = "checkbox",
+                        state   = team_modifiers.has(force_name, def.key),
+                        tags    = {sb_team_modifier = def.key, sb_target_force = force_name},
+                        tooltip = {"mts-tip.modifier-for-team", def.ls_label, def.ls_tooltip},
+                    }
+                    -- Standardized team display: colored tag + leader in dim
+                    -- brackets (rich text renders in label captions), plus
+                    -- the permanent non-competitive badge once marked.
+                    local badge = team_modifiers.ls_marked_badge(force_name)
+                    local name_lbl = row.add{type = "label",
+                        caption = badge
+                            and {"mts-gui.team-line-marked",
+                                helpers.team_tag_with_leader(force_name), badge}
+                            or helpers.team_tag_with_leader(force_name)}
+                    if badge then
+                        name_lbl.tooltip = {"mts-tip.marked-noncompetitive"}
+                    end
+                end
+            end
+            if not any_team then
+                flags_content.add{type = "label", caption = {"mts-gui.no-teams-yet"}}
+                    .style.font_color = {0.6, 0.6, 0.6}
+            end
+        end
+    end
+
     -- ── Starter Items tab ────────────────────────────────────────────────
-    local starter_tab     = tabs.add{type = "tab", caption = "Starter Items"}
+    local starter_tab     = tabs.add{type = "tab", caption = {"mts-gui.tab-starter-items"}}
     local starter_content = tabs.add{type = "flow", direction = "vertical",
         name = "sb_admin_starter_content"}
     starter_content.style.left_padding    = 8
@@ -119,16 +194,17 @@ function admin_gui.build_admin_gui(player)
     starter_content.add{
         type    = "button",
         name    = "sb_copy_inventory",
-        caption = "Copy from my inventory",
-        tooltip = "Replace the starter items list with everything in your character inventories.",
+        caption = {"mts-gui.copy-from-inventory"},
+        tooltip = {"mts-tip.copy-from-inventory"},
     }
 
-    local hdr = starter_content.add{type = "label", caption = "Items given when returning to pen:"}
+    local hdr = starter_content.add{type = "label", caption = {"mts-gui.starter-items-header"}}
     hdr.style.font = "default-bold"
 
     local starter_items = storage.starter_items
     if starter_items and #starter_items > 0 then
-        local tbl = starter_content.add{type = "table", name = "sb_starter_table", column_count = 3}
+        -- 4 columns: item, count, scope toggle, remove.
+        local tbl = starter_content.add{type = "table", name = "sb_starter_table", column_count = 4}
         tbl.style.horizontal_spacing = 8
         tbl.style.vertical_spacing   = 4
         for i, item in ipairs(starter_items) do
@@ -136,25 +212,45 @@ function admin_gui.build_admin_gui(player)
             name_flow.style.vertical_align    = "center"
             name_flow.style.horizontal_spacing = 4
             pcall(function() name_flow.add{type = "sprite", sprite = "item/" .. item.name} end)
-            local name_lbl = name_flow.add{type = "label", caption = item.name}
+            -- Stored names can outlive their prototypes (a mod removed between
+            -- sessions), so fall back to the raw internal name.
+            local proto      = prototypes.item[item.name]
+            local item_label = proto and proto.localised_name or item.name
+            local name_lbl = name_flow.add{type = "label", caption = item_label}
             if item.grid then
                 local parts = {}
-                for _, eq in ipairs(item.grid) do parts[#parts + 1] = eq.name end
-                name_lbl.caption = item.name .. " [+grid]"
-                name_lbl.tooltip = "Equipment: " .. table.concat(parts, ", ")
+                for _, eq in ipairs(item.grid) do
+                    local eq_proto = prototypes.equipment[eq.name]
+                    parts[#parts + 1] = eq_proto and eq_proto.localised_name or eq.name
+                end
+                name_lbl.caption = {"", item_label, " [+grid]"}
+                name_lbl.tooltip = {"mts-tip.equipment-list",
+                    helpers.ls_join(parts, ", ")}
             end
-            tbl.add{type = "label", caption = "x" .. item.count}
+            tbl.add{type = "label", caption = {"mts-gui.starter-item-count", item.count}}
+            -- Scope toggle: "team" entries are granted once per force, "player"
+            -- entries to everyone. See scripts/starter_scope.lua.
+            local is_team = starter_scope.is_team(item)
+            tbl.add{
+                type    = "button",
+                name    = "sb_starter_scope_" .. i,
+                caption = is_team and {"mts-gui.starter-scope-team"}
+                                  or  {"mts-gui.starter-scope-player"},
+                style   = is_team and "confirm_button" or "button",
+                tags    = {sb_starter_scope_index = i},
+                tooltip = {"mts-tip.starter-scope", item_label},
+            }.style.minimal_width = 72
             tbl.add{
                 type    = "sprite-button",
                 name    = "sb_starter_remove_" .. i,
                 sprite  = "utility/close",
                 style   = "mini_button",
                 tags    = {sb_starter_index = i},
-                tooltip = "Remove " .. item.name,
+                tooltip = {"mts-tip.remove-item", item_label},
             }
         end
     else
-        local note = starter_content.add{type = "label", caption = "  (using default items)"}
+        local note = starter_content.add{type = "label", caption = {"mts-gui.using-default-items"}}
         note.style.font_color = {0.6, 0.6, 0.6}
     end
 
@@ -164,12 +260,12 @@ function admin_gui.build_admin_gui(player)
     add_flow.style.vertical_align     = "center"
     add_flow.style.horizontal_spacing = 6
     add_flow.style.top_margin         = 4
-    add_flow.add{type = "label", caption = "Add:"}
+    add_flow.add{type = "label", caption = {"mts-gui.add-item"}}
     add_flow.add{
         type      = "choose-elem-button",
         name      = "sb_starter_elem",
         elem_type = "item",
-        tooltip   = "Select an item to add",
+        tooltip   = {"mts-tip.select-item-to-add"},
     }
     local count_field = add_flow.add{
         type           = "textfield",
@@ -178,7 +274,7 @@ function admin_gui.build_admin_gui(player)
         numeric        = true,
         allow_decimal  = false,
         allow_negative = false,
-        tooltip        = "Count",
+        tooltip        = {"mts-tip.starter-count"},
     }
     count_field.style.width = 60
     add_flow.add{
@@ -186,11 +282,11 @@ function admin_gui.build_admin_gui(player)
         name    = "sb_starter_add",
         caption = "+",
         style   = "tool_button",
-        tooltip = "Add this item to the starter list",
+        tooltip = {"mts-tip.add-starter-item"},
     }
 
     -- ── Run Info tab (landing-pen display panel) ─────────────────────────
-    local info_tab     = tabs.add{type = "tab", caption = "Run Info"}
+    local info_tab     = tabs.add{type = "tab", caption = {"mts-gui.tab-run-info"}}
     local info_content = tabs.add{type = "flow", direction = "vertical",
         name = "sb_admin_info_content"}
     info_content.style.left_padding    = 8
@@ -201,10 +297,10 @@ function admin_gui.build_admin_gui(player)
     tabs.add_tab(info_tab, info_content)
 
     local info_hdr = info_content.add{type = "label",
-        caption = "Description shown on the landing-pen panel:"}
+        caption = {"mts-gui.run-info-header"}}
     info_hdr.style.font = "default-bold"
     info_content.add{type = "label",
-        caption = "Players read this when they land. Edit and Save any time.",
+        caption = {"mts-gui.run-info-hint"},
     }.style.font_color = {0.6, 0.6, 0.6}
 
     local info_box = info_content.add{
@@ -218,9 +314,9 @@ function admin_gui.build_admin_gui(player)
     info_content.add{
         type    = "button",
         name    = "sb_admin_info_save",
-        caption = "Save description",
+        caption = {"mts-gui.save-description"},
         style   = "confirm_button",
-        tooltip = "Update the landing-pen info panel with this text.",
+        tooltip = {"mts-tip.save-description"},
     }
 
     tabs.selected_tab_index = prev_tab
@@ -255,7 +351,7 @@ function admin_gui.on_gui_click(event)
             local box = el.parent and el.parent.sb_admin_info_text
             if box and box.valid then
                 pen_info_panel.set_text(box.text)
-                player.print("Landing-pen info panel updated.")
+                player.print({"mts-chat.pen-info-updated"})
             end
         end
         return true
@@ -268,14 +364,22 @@ function admin_gui.on_gui_click(event)
             local old_counts = {}
             for _, item in pairs(old_items) do old_counts[item.name] = item.count end
             storage.starter_items = admin_flags.collect_character_items(player)
+            -- Replaces every entry, so re-seed compat scope defaults.
+            starter_scope.seed_defaults(storage.starter_items)
             local diff = {}
             for _, item in pairs(storage.starter_items) do
                 local prev = old_counts[item.name] or 0
                 if item.count > prev then
-                    -- Carry the grid so already-spawned players get the armor
-                    -- loaded too (insert_starter_item strips it before the
-                    -- engine insert; the delivery-override raise strips it).
-                    diff[#diff + 1] = {name = item.name, count = item.count - prev, grid = item.grid}
+                    -- Carry the grid (and the quality it was captured at) so
+                    -- already-spawned players get the armor loaded too;
+                    -- insert_starter_item places it as its own stack, and the
+                    -- delivery-override raise strips both fields.
+                    diff[#diff + 1] = {
+                        name    = item.name,
+                        count   = item.count - prev,
+                        grid    = item.grid,
+                        quality = item.quality,
+                    }
                 end
             end
             if #diff > 0 then
@@ -310,6 +414,19 @@ function admin_gui.on_gui_click(event)
                 local added = {{name = item_name, count = count}}
                 admin_flags.distribute_items_to_spawned(added)
                 admin_flags.announce_starter_items_added(added, player)
+                admin_gui.build_admin_gui(player)
+            end
+        end
+        return true
+    end
+
+    if el.tags and el.tags.sb_starter_scope_index and el.name:find("^sb_starter_scope_") then
+        local player = game.get_player(event.player_index)
+        if player and is_admin(player) then
+            local idx  = el.tags.sb_starter_scope_index
+            local item = storage.starter_items and storage.starter_items[idx]
+            if item then
+                starter_scope.toggle(item)
                 admin_gui.build_admin_gui(player)
             end
         end
@@ -411,7 +528,7 @@ function admin_gui.refresh_nav_button(player)
                 type    = "sprite-button",
                 name    = NAV_BTN_NAME,
                 sprite  = "utility/bookmark",
-                tooltip = "Open Admin panel",
+                tooltip = {"mts-tip.open-admin-panel"},
                 style   = "tool_button",
             }
             if insert_index then add_args.index = insert_index end

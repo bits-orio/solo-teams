@@ -1,6 +1,6 @@
 -- Multi-Team Support - prototypes/connections.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Data-stage (final-fixes): creates per-team space-connection prototypes
 -- by mirroring the vanilla connection topology for each team slot.
@@ -132,10 +132,14 @@ for _, info in ipairs(base_connections) do
         -- Localisation: the deep-copied base connection had a localised_name
         -- pointing at e.g. "space-connection-name.nauvis-vulcanus" which still
         -- works. But if the base relied on auto-lookup by prototype name,
-        -- our variant would produce "Unknown key" warnings. Override to
-        -- reference the base connection's locale key explicitly.
+        -- our variant would produce "Unknown key" warnings. Override with our
+        -- parameterised key wrapping the base connection's own locale key, so
+        -- translators control the word order of the team suffix.
         variant.localised_name = {
-            "", {"space-connection-name." .. info.name}, " (Team " .. slot .. ")",
+            "space-connection-name.mts-team-connection",
+            -- tostring: see prototypes/planets.lua — data-stage
+            -- localised strings only accept string parameters.
+            {"space-connection-name." .. info.name}, tostring(slot),
         }
 
         data:extend{variant}

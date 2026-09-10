@@ -1,6 +1,6 @@
 -- Multi-Team Support - vanilla_compat.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Support for vanilla-style games (no Platformer mod) where each player
 -- spawns on their own fresh copy of the Nauvis surface generated from the
@@ -23,6 +23,7 @@ function vanilla.is_active()
 end
 
 vanilla.planet_display_name    = compat_utils.planet_display_name
+vanilla.ls_planet_display_name = compat_utils.ls_planet_display_name
 vanilla.process_pending_teleports = compat_utils.process_pending_teleports
 
 --- Create a personal Nauvis surface for `player` using the same map-gen

@@ -15,8 +15,28 @@ local start_playing_gui = require("gui.start_playing_gui")
 local color_fix         = require("scripts.color_fix")
 local team_color        = require("scripts.team_color")
 local pause_notify      = require("scripts.pause.notify")
+local team_modifiers    = require("scripts.team_modifiers")
+local hud_clock         = require("gui.hud_clock")
+local reaper            = require("scripts.reaper")
 
 local M = {}
+
+--- Broadcast the tags of every occupied team flagged looking-for-more, so a
+--- pen-bound player knows where to look. No-op when none are recruiting.
+local function announce_recruiting_teams()
+    storage.team_looking_for_more = storage.team_looking_for_more or {}
+    local lfm_tags = {}
+    for i = 1, force_utils.max_teams() do
+        local fn = "team-" .. i
+        if (storage.team_pool or {})[i] == "occupied"
+           and storage.team_looking_for_more[fn] then
+            lfm_tags[#lfm_tags + 1] = helpers.team_tag(fn)
+        end
+    end
+    if #lfm_tags > 0 then
+        helpers.broadcast({"mts-chat.teams-recruiting", table.concat(lfm_tags, ", ")})
+    end
+end
 
 function M.register()
     -- Player colour changes are event-driven in 2.1 (replaced the 60-tick
@@ -34,14 +54,25 @@ function M.register()
     script.on_event(defines.events.on_player_created, function(event)
         local player = game.get_player(event.player_index)
         h.register_nav_buttons(player)
-        admin_gui.auto_populate_starter_items(player)
 
         -- With a delivery override (e.g. Brave New MTS), starter items go to the
-        -- team's logistic chests, not the player. auto_populate (above) has just
-        -- captured the map's default loadout into the admin list, so now empty the
-        -- character: the player should arrive in the pen / on their team carrying
-        -- nothing.
+        -- team's logistic chests, not the player. Capture the map's default
+        -- loadout into the admin list, then empty the character: the player should
+        -- arrive in the pen / on their team carrying nothing.
+        --
+        -- This is the ONLY path that still captures here, and it is a KNOWN GAP:
+        -- on_player_created is too early (see the note in on_player_joined_game),
+        -- so under an override a kit granted by a mod that loads after MTS is not
+        -- recorded, and the stub captured instead latches and suppresses the later
+        -- capture. It is kept here because the character is emptied on the very
+        -- next line -- moving the capture later means moving the clear later too,
+        -- and the clear is what an override consumer relies on to have the player
+        -- arrive carrying nothing. Consequence is bounded: with an override active
+        -- grant_starter_items never runs, so nobody is stripped -- the consumer's
+        -- own delivery just misses the map-default top-up. Revisit together with
+        -- the consumer if an override is ever paired with a late-loading overhaul.
         if player and player.character and remote_api.starter_delivery_override() then
+            admin_gui.auto_populate_starter_items(player)
             player.character.clear_items_inside()
         end
 
@@ -81,13 +112,34 @@ function M.register()
 
     script.on_event(defines.events.on_player_joined_game, function(event)
         local player = game.get_player(event.player_index)
-        if player then
-            color_fix.on_joined(player)
-            -- Direct dispatch: a clean-arriving colour writes nothing (no event
-            -- echo), yet the force colour may still have drifted while the
-            -- leader was away -- adoption must not depend on the event.
-            team_color.adopt_if_leader(player)
+
+        -- Capture the map's default starter loadout on a player's FIRST join.
+        --
+        -- NOT in on_player_created: the engine dispatches that event to every mod
+        -- in load order, and a mod that loads after MTS hands out its starting kit
+        -- after we would have looked. That is not a tie-break we can win -- an
+        -- overhaul sitting behind a hard dependency chain (Sea Block behind
+        -- Angel's/Bob's, say) is pinned near the end of the load order by the
+        -- topological sort. Capturing there recorded the pre-kit inventory, and
+        -- grant_starter_items then wiped the real kit and re-inserted that stub at
+        -- pen exit. on_player_joined_game is only dispatched once EVERY mod's
+        -- on_player_created has run, so the loadout is final by the time we read it.
+        --
+        -- Gated on seen_players (set further down) so this is a first-join capture:
+        -- a reconnecting veteran carrying a built-up inventory must never redefine
+        -- what a starting kit looks like.
+        if player and not (storage.seen_players or {})[player.index] then
+            admin_gui.auto_populate_starter_items(player)
         end
+
+        -- Deliver any "your team was disbanded" notice queued while the
+        -- player was offline, and record a return to a condemned team.
+        if player then reaper.on_player_joined(player) end
+        if player then color_fix.on_joined(player) end
+        -- Direct dispatch: a clean-arriving colour writes nothing (no event
+        -- echo), yet the force colour may still have drifted while the
+        -- leader was away -- adoption must not depend on the event.
+        if player then team_color.adopt_if_leader(player) end
         if player then spectator.on_player_joined(player) end
         -- Re-raise the pause alert for a member joining mid-pause (a force
         -- alert only reaches players connected at raise time).
@@ -114,56 +166,34 @@ function M.register()
         if player then
             storage.seen_players = storage.seen_players or {}
             local discord_url = settings.global["mts_discord_url"].value
+            local cn = helpers.colored_name(player.name, player.chat_color)
             if not storage.seen_players[player.index] then
                 storage.seen_players[player.index] = true
-                local msg = "Welcome " .. player.name .. "!"
-                if discord_url ~= "" then
-                    msg = msg .. " Join our Discord for reset notifications: " .. discord_url
-                end
-                helpers.broadcast(msg)
+                helpers.broadcast({"",
+                    {"mts-chat.welcome", cn},
+                    discord_url ~= "" and {"mts-chat.discord-invite", discord_url} or ""})
                 -- Announce any teams currently recruiting so new players know where to look.
                 if admin_gui.flag("buddy_join_enabled") and admin_gui.flag("landing_pen_enabled") then
-                    storage.team_looking_for_more = storage.team_looking_for_more or {}
-                    local lfm_tags = {}
-                    for i = 1, force_utils.max_teams() do
-                        local fn = "team-" .. i
-                        if (storage.team_pool or {})[i] == "occupied"
-                           and storage.team_looking_for_more[fn] then
-                            lfm_tags[#lfm_tags + 1] = helpers.team_tag(fn)
-                        end
-                    end
-                    if #lfm_tags > 0 then
-                        helpers.broadcast("Teams looking for more players: "
-                            .. table.concat(lfm_tags, ", ") .. ".")
-                    end
+                    announce_recruiting_teams()
                 end
             else
-                local msg
                 if force_utils.is_team_force(player.force.name) then
-                    msg = "Welcome back " .. player.name .. " " .. helpers.team_tag_with_leader(player.force.name) .. "!"
+                    helpers.broadcast({"mts-chat.welcome-back-team", cn,
+                        helpers.team_tag_with_leader(player.force.name)})
                 else
-                    msg = "Welcome back " .. player.name .. "!"
+                    helpers.broadcast({"mts-chat.welcome-back", cn})
                 end
-                helpers.broadcast(msg)
                 -- If the returning player lands in the pen, tell them which teams are recruiting.
                 if landing_pen.is_in_pen(player)
                    and admin_gui.flag("buddy_join_enabled")
                    and admin_gui.flag("landing_pen_enabled") then
-                    storage.team_looking_for_more = storage.team_looking_for_more or {}
-                    local lfm_tags = {}
-                    for i = 1, force_utils.max_teams() do
-                        local fn = "team-" .. i
-                        if (storage.team_pool or {})[i] == "occupied"
-                           and storage.team_looking_for_more[fn] then
-                            lfm_tags[#lfm_tags + 1] = helpers.team_tag(fn)
-                        end
-                    end
-                    if #lfm_tags > 0 then
-                        helpers.broadcast("Teams looking for more players: "
-                            .. table.concat(lfm_tags, ", ") .. ".")
-                    end
+                    announce_recruiting_teams()
                 end
             end
+
+            -- Latecomers shouldn't have to discover non-competitive mode from
+            -- a card icon — tell them directly (their chat only).
+            team_modifiers.print_mode_notice(player)
 
             -- Team-aware connect announcement to the Open Discord Bridge (replaces the
             -- bridge's team-less baseline player_joined, which we disable on init).
@@ -174,14 +204,19 @@ function M.register()
         end
     end)
 
-    -- Re-fit a maximized follow cam when the player resizes the window or
-    -- changes UI scale, so it keeps filling the screen.
-    local function refit_follow_cam(event)
+    -- Re-fit a maximized follow cam and re-anchor the center-top chat switch
+    -- when the player resizes the window or changes UI scale. One handler for
+    -- both concerns: a second script.on_event for the same id would clobber
+    -- this one.
+    local function on_display_changed(event)
         local player = game.get_player(event.player_index)
-        if player then follow_cam.on_display_changed(player) end
+        if player then
+            follow_cam.on_display_changed(player)
+            hud_clock.update_player(player)
+        end
     end
-    script.on_event(defines.events.on_player_display_resolution_changed, refit_follow_cam)
-    script.on_event(defines.events.on_player_display_scale_changed, refit_follow_cam)
+    script.on_event(defines.events.on_player_display_resolution_changed, on_display_changed)
+    script.on_event(defines.events.on_player_display_scale_changed, on_display_changed)
 
     script.on_event(defines.events.on_player_left_game, function(event)
         local player = game.get_player(event.player_index)

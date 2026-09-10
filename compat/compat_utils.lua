@@ -1,6 +1,6 @@
 -- Multi-Team Support - compat_utils.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Shared utilities for compat modules (vanilla, voidblock).
 -- Extracts common logic: surface naming, teleport queue, display names,
@@ -37,6 +37,15 @@ compat_utils.CHARACTER_STARTING_ITEMS = {
 --- planet "nauvis" -> "Nauvis"
 function compat_utils.planet_display_name(planet)
     return planet:sub(1, 1):upper() .. planet:sub(2)
+end
+
+--- LocalisedString twin of planet_display_name: the planet's own locale entry
+--- when one exists, else the capitalised id. The plain-string version stays
+--- for consumers that need a string (see the re-exports in vanilla /
+--- voidblock / mts_dimension_warp).
+function compat_utils.ls_planet_display_name(planet)
+    return {"?", {"space-location-name." .. planet},
+        compat_utils.planet_display_name(planet)}
 end
 
 --- True for a team's nauvis variant under either naming scheme:

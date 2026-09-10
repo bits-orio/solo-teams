@@ -1,6 +1,6 @@
 -- Multi-Team Support - compat/remote_safe.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Dependency-free helper for calling another mod's remote interface defensively.
 -- Knowing a mod is ACTIVE (script.active_mods) is NOT enough: the interface name

@@ -1,6 +1,6 @@
 -- Multi-Team Support - landing_pen_terrain.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Surface creation and chunk generation for the Landing Pen.
 -- The pen is a circular island with a lab-dark-2 floor, water moat,
@@ -60,13 +60,13 @@ function landing_pen_terrain.get_or_create_surface()
         surface.force_generate_chunk_requests()
 
         rendering.draw_text{
-            text = "MULTI-TEAM SUPPORT", surface = surface,
+            text = {"mts-gui.pen-ground-title"}, surface = surface,
             target = {x = 0, y = -8},
             color = {r = 0.9, g = 0.7, b = 0.3, a = 0.8},
             scale = 5, font = "default-large-bold", alignment = "center",
         }
         rendering.draw_text{
-            text = "Spawn when ready", surface = surface,
+            text = {"mts-gui.pen-ground-spawn"}, surface = surface,
             target = {x = 0, y = 4},
             color = {r = 1.0, g = 1.0, b = 1.0, a = 0.8},
             scale = 3, font = "default-large", alignment = "center",

@@ -1,6 +1,6 @@
 -- Multi-Team Support - gui/pen_info_panel.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- An admin-editable info panel in the dead center of the landing pen. The host
 -- edits its text from the Admin panel's "Run Info" tab to describe each run
@@ -28,6 +28,9 @@ local SURFACE_NAME = "landing-pen"
 local PANEL_NAME   = "display-panel"
 local PANEL_POS    = {x = 0, y = 0}            -- dead center of the pen island
 local CHART_AREA   = {{-20, -20}, {20, 20}}    -- covers the whole radius-15 island
+-- TODO(locale-stage5): stays a plain string for now — the Admin GUI's Run Info
+-- textbox reads the current panel text back via .text (a plain-string engine
+-- surface), so keying this default is a stage-5 storage/round-trip decision.
 local DEFAULT_TEXT = "An admin can describe this run from the Admin panel (Run Info tab)."
 
 -- ─── Text ──────────────────────────────────────────────────────────────

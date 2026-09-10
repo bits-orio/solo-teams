@@ -1,6 +1,6 @@
 -- Multi-Team Support - compat/dangoreus.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Compatibility with the dangOreus mod by Mylon
 -- (https://mods.factorio.com/mod/dangOreus). dangOreus covers nauvis
@@ -150,7 +150,7 @@ function dangoreus.on_built_entity(event)
         entity.die()
         force.create_ghost_on_entity_death = ttl
         if last_user then
-            last_user.print("Cannot build non-miners on resources!")
+            last_user.print({"mts-chat.cannot-build-on-resources"})
         end
     end
 end

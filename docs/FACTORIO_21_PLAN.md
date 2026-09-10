@@ -2,6 +2,18 @@
 
 Execution plan for the adopted entries of `docs/FACTORIO_21_OPPORTUNITIES.md` (triage recorded there, 2026-07-20). Six phases, each independently testable in-game at its end; commit after each phase passes its checklist. No version bumps unless explicitly decided at release time.
 
+## Branch policy (decided 2026-09-09)
+
+Two branches until Factorio 2.1 is the stable release: `master` is the 2.0 line (stable players and server operators; versions 0.6.x), `factorio-2.1` is the 2.1 line (versions 0.7.x). The two lines never share a version number, because the portal rejects duplicates. No engine-version guards ship in either tree.
+
+Rules that keep the lines from drifting (the July layout drifted 39 commits in two months and lost a fix under a refactor):
+
+1. Every change that is not 2.1-specific lands on `master` first. The branch's own delta stays limited to what 2.1 forces or enables (the port fixes and the phases).
+2. After every `master` release, merge `master` into `factorio-2.1` (`git merge master`, never cherry-pick), resolve, run `tools/check_locale.py`, `tests/syntax_check.py`, `tests/run.py`, and load the result on the 2.1.17 headless rig (`~/factorio-dev/rig`) before the in-game test.
+3. Engine-neutral forms are preferred on `master` even where 2.0 still accepts the old API (`disabled_by_script`, `minable_flag`, the `recipe_in_category` probe, `lab_inputs` science discovery), so the merge delta shrinks to the 2.1 features.
+4. Releases are cut from the branch they belong to; `tools/release.sh` warns when not on master, which is expected for the 2.1 line.
+5. When 2.1 becomes stable and the servers have moved: merge `factorio-2.1` into `master`, retire the 2.0 line, delete the branch.
+
 ## Decisions (from triage review, 2026-07-20)
 
 - **Scope**: Full Tier A (A1, A2, A5, A6 + new capabilities A3, A4), plus the free B1 rider. Everything else DEFER/REJECT — see the triage table in the opportunities doc.

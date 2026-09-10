@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/pause/state.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Single source of truth for per-team paused state.
 --

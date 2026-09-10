@@ -3,6 +3,7 @@
 
 local spectator = require("scripts.spectator")
 local helpers   = require("scripts.helpers")
+local activity  = require("scripts.activity")
 
 local M = {}
 
@@ -19,16 +20,30 @@ end
 
 -- ─── Data Collection ───────────────────────────────────────────────────
 
+-- Localised planet name for an internal space-location id, falling back to
+-- the Lua-capitalised form when no prototype exists (modded/legacy surfaces).
+local function ls_planet_name(id, capitalised)
+    return {"?", {"space-location-name." .. id}, capitalised}
+end
+
+-- Every entry carries ls_name/ls_location LocalisedString twins next to the
+-- plain name/location fields. All display consumers (gui/team_card.lua,
+-- /mts-players) use the ls_ twins; the plain fields stay for data/debug
+-- consumers and can fold after the post-playtest cleanup confirms none
+-- remain.
 function M.collect_team_surfaces(force)
     local list = {}
 
     for _, platform in pairs(force.platforms) do
-        local location = platform.space_location and platform.space_location.name or "in transit"
+        local loc_id = platform.space_location and platform.space_location.name
         local hub = platform.hub
         local hub_pos = (hub and hub.valid) and hub.position or nil
         list[#list + 1] = {
             name         = platform.name,
-            location     = location,
+            location     = loc_id or "in transit",
+            ls_name      = platform.name,
+            ls_location  = loc_id and ls_planet_name(loc_id, loc_id)
+                or {"mts-gui.in-transit"},
             gps          = get_platform_gps(platform),
             surface_name = platform.surface and platform.surface.name or nil,
             position     = hub_pos and {x = hub_pos.x, y = hub_pos.y} or helpers.ORIGIN,
@@ -40,9 +55,12 @@ function M.collect_team_surfaces(force)
             local owner_fn, planet = surface.name:match("^(team%-%d+)%-(%w+)$")
             if owner_fn == force.name then
                 local planet_disp = planet:sub(1, 1):upper() .. planet:sub(2)
+                local ls_planet   = ls_planet_name(planet, planet_disp)
                 list[#list + 1] = {
                     name         = planet_disp .. " base",
                     location     = planet_disp,
+                    ls_name      = {"mts-gui.planet-base", ls_planet},
+                    ls_location  = ls_planet,
                     gps          = string.format("[gps=0,0,%s]", surface.name),
                     surface_name = surface.name,
                     position     = helpers.ORIGIN,
@@ -62,6 +80,8 @@ function M.collect_team_surfaces(force)
                 list[#list + 1] = {
                     name         = sname,
                     location     = sname,
+                    ls_name      = sname,
+                    ls_location  = sname,
                     gps          = string.format("[gps=0,0,%s]", sname),
                     surface_name = sname,
                     position     = helpers.ORIGIN,
@@ -75,9 +95,12 @@ function M.collect_team_surfaces(force)
         local surface = game.surfaces[variant]
         if surface and surface.valid then
             local planet_disp = base:sub(1, 1):upper() .. base:sub(2)
+            local ls_planet   = ls_planet_name(base, planet_disp)
             list[#list + 1] = {
                 name         = planet_disp .. " base",
                 location     = planet_disp,
+                ls_name      = {"mts-gui.planet-base", ls_planet},
+                ls_location  = ls_planet,
                 gps          = string.format("[gps=0,0,%s]", surface.name),
                 surface_name = surface.name,
                 position     = helpers.ORIGIN,
@@ -147,15 +170,29 @@ end
 
 local function fmt_ago(ticks)
     if ticks < 3600 then return "just now" end
+    return helpers.fmt_span(ticks) .. " ago"
+end
+M.fmt_ago = fmt_ago
+
+--- LocalisedString twin of fmt_ago. Own keys (not the engine time symbols)
+--- because the "ago" phrasing must travel with the units for translators to
+--- reorder. Plain fmt_ago stays only for the plain activity_info twin
+--- (post-playtest cleanup may fold both once no consumer remains).
+local function ls_fmt_ago(ticks)
+    if ticks < 3600 then return {"mts-gui.ago-just-now"} end
     local s = math.floor(ticks / 60)
     local h = math.floor(s / 3600)
     local m = math.floor((s % 3600) / 60)
     local d = math.floor(h / 24)
-    if d >= 1 then return d .. "d ago" end
-    if h >= 1 then return h .. "h " .. m .. "m ago" end
-    return m .. "m ago"
+    local rh = h % 24
+    if d >= 1 then
+        if rh > 0 then return {"mts-gui.ago-days-hours", d, rh} end
+        return {"mts-gui.ago-days", d}
+    end
+    if h >= 1 then return {"mts-gui.ago-hours-minutes", h, m} end
+    return {"mts-gui.ago-minutes", m}
 end
-M.fmt_ago = fmt_ago
+M.ls_fmt_ago = ls_fmt_ago
 
 local function fmt_playtime(ticks)
     local s = math.floor(ticks / 60)
@@ -165,10 +202,24 @@ local function fmt_playtime(ticks)
     return (m > 0 and m .. "m" or "< 1m")
 end
 
-local function player_last_active_tick(player)
-    if player.connected then return game.tick end
-    return (storage.player_last_seen or {})[player.index]
+--- LocalisedString twin of fmt_playtime, composing the engine's translated
+--- time symbols like helpers.ls_duration (the stage-1 builders themselves
+--- zero-pad minutes, so they aren't byte-identical to fmt_playtime).
+local function ls_fmt_playtime(ticks)
+    local s = math.floor(ticks / 60)
+    local h = math.floor(s / 3600)
+    local m = math.floor((s % 3600) / 60)
+    if h >= 1 then
+        return {"", {"time-symbol-hours-short", h}, " ",
+                    {"time-symbol-minutes-short", m}}
+    end
+    if m > 0 then return {"time-symbol-minutes-short", m} end
+    return {"mts-gui.playtime-under-minute"}
 end
+
+-- Shared with the reaper via scripts/activity.lua so the card and the
+-- auto-disband rule can never disagree about who is idle.
+local player_last_active_tick = activity.last_online_tick
 
 local function team_last_active_tick(member_list)
     local best = nil
@@ -180,23 +231,150 @@ local function team_last_active_tick(member_list)
 end
 M.team_last_active_tick = team_last_active_tick
 
+-- Rich-text member name in the member's chat colour, shared by both tooltip
+-- builders below.
+local function color_hex(c)
+    return string.format("#%02x%02x%02x",
+        math.floor((c.r or c[1] or 0) * 255),
+        math.floor((c.g or c[2] or 0) * 255),
+        math.floor((c.b or c[3] or 0) * 255))
+end
+
+local function member_rich_name(p)
+    return "[color=" .. color_hex(p.chat_color) .. "]" .. p.name .. "[/color]"
+end
+
+--- The member row's tooltip: a small card rather than a sentence.
+---   bold name in the member's chat colour
+---   status line, coloured by age: "○ Last seen 5d 2h ago" / "● Online now"
+---   total time online, in full ("48h 12m")
+---   dim caveat that idle time counts
+--- Rich-text tags are parsed on the final rendered string, so a colour tag
+--- may open in one concatenated part and close in another.
+local function ls_member_tooltip(p, ago, color)
+    local status
+    if p.connected then
+        status = {"mts-tip.member-status-online"}
+    elseif ago then
+        status = {"mts-tip.member-status-offline", ls_fmt_ago(ago)}
+    else
+        status = {"mts-tip.member-status-never"}
+    end
+    return {"mts-tip.member-card",
+        member_rich_name(p),
+        {"", "[color=" .. color_hex(color) .. "]", status, "[/color]"},
+        ls_fmt_playtime(p.online_time or 0)}
+end
+
 local function build_activity_tooltip(member_list)
     if #member_list == 0 then return nil end
     local lines = {}
     for _, p in ipairs(member_list) do
-        local c = p.chat_color
-        local hex = string.format("#%02x%02x%02x",
-            math.floor((c.r or c[1] or 0) * 255),
-            math.floor((c.g or c[2] or 0) * 255),
-            math.floor((c.b or c[3] or 0) * 255))
         local t = player_last_active_tick(p)
         local seen = p.connected and "online now"
             or (t and ("last seen: " .. fmt_ago(game.tick - t)) or "never seen")
-        lines[#lines + 1] = "[color=" .. hex .. "]" .. p.name .. "[/color]: Played "
+        lines[#lines + 1] = member_rich_name(p) .. ": Played "
             .. fmt_playtime(p.online_time) .. " (" .. seen .. ")"
     end
     return table.concat(lines, "\n")
 end
 M.build_activity_tooltip = build_activity_tooltip
+
+-- Join LocalisedString lines with "\n", chunked below the engine's
+-- 20-parameters-per-table limit (a nested table restarts the budget). Two
+-- levels cover ~170 lines — far beyond any team's member count.
+--- LocalisedString twin of build_activity_tooltip (dual API).
+--- One member's activity line, shared by the team tooltip and the member row.
+local function ls_member_line(p)
+    local t = player_last_active_tick(p)
+    local seen = p.connected and {"mts-tip.seen-online-now"}
+        or (t and {"mts-tip.last-seen", ls_fmt_ago(game.tick - t)}
+            or {"mts-tip.seen-never"})
+    return {"mts-tip.member-activity", member_rich_name(p),
+        ls_fmt_playtime(p.online_time), seen}
+end
+
+local function ls_build_activity_tooltip(member_list)
+    if #member_list == 0 then return nil end
+    local lines = {}
+    for _, p in ipairs(member_list) do lines[#lines + 1] = ls_member_line(p) end
+    return helpers.ls_join(lines, "\n")
+end
+M.ls_build_activity_tooltip = ls_build_activity_tooltip
+
+--- Compact playtime for a card row: whole hours once past an hour, else
+--- minutes. The full "48h 12m" form stays in the tooltip.
+local function ls_fmt_playtime_short(ticks)
+    local m = math.floor(ticks / 3600)
+    local h = math.floor(m / 60)
+    if h >= 1 then return {"time-symbol-hours-short", h} end
+    if m >= 1 then return {"time-symbol-minutes-short", m} end
+    return {"mts-gui.playtime-under-minute"}
+end
+
+--- Per-member activity for a Teams card row. Everyone sees this, not only
+--- admins, so a leader can tell which of five members are the three who
+--- stopped showing up.
+---   caption        "2d 5h ago" for an offline member; nil when connected
+---                  (the filled dot already says so)
+---   color          age colour for the caption
+---   tooltip        the full line: name, playtime, last seen
+---   played_caption total time online, on EVERY row. A member who put in 48
+---                  hours and then missed a week must not read as a tourist
+---                  just because the last-seen label is red.
+function M.ls_member_activity(player)
+    local ago, caption
+    if not player.connected then
+        ago     = activity.offline_ticks(player)
+        caption = ago and ls_fmt_ago(ago) or {"mts-tip.seen-never"}
+    end
+    local color = player.connected and activity.COLOR_FRESH
+        or (ago and activity.age_color(ago) or activity.COLOR_UNKNOWN)
+    return {
+        caption        = caption,
+        color          = color,
+        tooltip        = ls_member_tooltip(player, ago, color),
+        played_caption = {"", player.connected and " " or " · ",
+                          ls_fmt_playtime_short(player.online_time or 0)},
+    }
+end
+
+--- Activity summary for a team's member list, shared by the teams GUI cards,
+--- the production stats rows, and the disband dialog so they all agree.
+--- Returns nil when the team has no recorded activity, else:
+---   ago_ticks  - ticks since the most recent member activity
+---   any_online - true if any member is connected right now
+---   ago_text   - "active" when online, else fmt_ago(ago_ticks)
+---   color      - green < 1h, yellow < 24h, red older
+---   tooltip    - per-member playtime/last-seen breakdown
+function M.activity_info(member_list)
+    local last_tick = team_last_active_tick(member_list)
+    if not last_tick then return nil end
+    local ago_ticks  = game.tick - last_tick
+    local any_online = false
+    for _, p in ipairs(member_list) do
+        if p.connected then any_online = true; break end
+    end
+    local color = activity.age_color(ago_ticks)
+    return {
+        ago_ticks  = ago_ticks,
+        any_online = any_online,
+        ago_text   = any_online and "active" or fmt_ago(ago_ticks),
+        color      = color,
+        tooltip    = build_activity_tooltip(member_list),
+    }
+end
+
+--- LocalisedString twin of activity_info: same shape, with ago_text and
+--- tooltip as LocalisedStrings. Drop-in for the plain version as its
+--- consumers (team_card, stats, admin command) migrate (dual API).
+function M.ls_activity_info(member_list)
+    local info = M.activity_info(member_list)
+    if not info then return nil end
+    info.ago_text = info.any_online and {"mts-gui.activity-active"}
+        or ls_fmt_ago(info.ago_ticks)
+    info.tooltip  = ls_build_activity_tooltip(member_list)
+    return info
+end
 
 return M

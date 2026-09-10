@@ -1,6 +1,6 @@
 -- Multi-Team Support - compat/mts_dimension_warp.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Support for the MTS Dimension Warp (MDW) mod. Each team spawns DIRECTLY on
 -- its own neo-nauvis platform world as warp #0 -- never on nauvis. neo-nauvis
@@ -44,6 +44,7 @@ function mts_dimension_warp.is_active()
 end
 
 mts_dimension_warp.planet_display_name    = compat_utils.planet_display_name
+mts_dimension_warp.ls_planet_display_name = compat_utils.ls_planet_display_name
 -- Reuse the shared teleport path: MDW's pending teleports live in the same
 -- storage.pending_vanilla_tp queue, so process_pending_teleports == compat_utils'.
 mts_dimension_warp.process_pending_teleports = compat_utils.process_pending_teleports

@@ -1,6 +1,6 @@
 -- Multi-Team Support - control.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Bootstrap: initialises storage, wires modules, and delegates all event
 -- registrations to the events/ folder.  Event handlers live there; this
@@ -34,6 +34,8 @@ local surface_utils    = require("scripts.surface_utils")
 local blueprint_lock   = require("scripts.blueprint_lock")
 local global_milestones = require("scripts.global_milestones")
 local remote_api        = require("scripts.remote_api")
+local reaper            = require("scripts.reaper")
+local cleanup_gui       = require("gui.cleanup")
 -- Inject team_surfaces at parse time to break the team_surfaces -> team_slots
 -- -> remote_api require cycle (remote_api can't require it directly, and
 -- Factorio forbids require() at runtime).
@@ -41,6 +43,12 @@ remote_api.set_deferred_deps({ team_surfaces = require("scripts.team_surfaces") 
 -- Let team_surfaces re-raise on_team_surface_created after it finishes building a
 -- surface (planet association + chunk pre-gen), without requiring remote_api.
 require("scripts.team_surfaces").set_raise_hook(remote_api.raise_team_surface_created)
+-- Same reason: a retiring surface's production must be banked for the reaper
+-- BEFORE team_surfaces strips its ownership, and it cannot require the reaper.
+require("scripts.team_surfaces").set_retire_hook(reaper.on_surface_retiring)
+-- The armed cycle cannot require the Cleanup GUI (that module requires the
+-- reaper), so the intervention prompt is handed down here.
+reaper.set_intervention_hook(cleanup_gui.prompt_intervention)
 local pre_start         = require("scripts.pre_start")
 require("scripts.team_disband")  -- injects remote_api.disband_impl (mts-v1 disband_team)
 -- Inject the shared rename rule into the Team Settings GUI. team_rename requires
@@ -69,6 +77,8 @@ local ev_research         = require("events.research")
 local ev_gui_clicks       = require("events.gui_clicks")
 local ev_gui_state        = require("events.gui_state")
 local ev_chat             = require("events.chat")
+local locale_audit        = require("scripts.locale_audit")
+local starter_scope       = require("scripts.starter_scope")
 
 local function init_events()
     ev_ticks.register()
@@ -82,6 +92,7 @@ local function init_events()
     ev_chat.register()
     global_milestones.register()
     platform_hub_gui.register()
+    locale_audit.register()
 end
 
 -- ─── Lifecycle ─────────────────────────────────────────────────────────
@@ -121,6 +132,13 @@ script.on_init(function()
     storage.research_gui_diff_target = {}
     storage.show_offline_players     = {}
     storage.return_button_location   = {}
+    storage.cleanup_selection        = {}
+    storage.cleanup_sort             = {}
+    storage.cleanup_pending          = {}
+    storage.cleanup_cache            = {}
+    storage.reaper_notice            = {}
+    reaper.on_init()
+    starter_scope.init_storage()
     global_milestones.init_storage()
     admin_gui.get_flags()
     spectator.init()
@@ -217,11 +235,19 @@ script.on_configuration_changed(function()
     storage.awards_gui_location      = storage.awards_gui_location      or {}
     storage.team_leader              = storage.team_leader              or {}
     storage.team_pool                = storage.team_pool                or {}
+    storage.team_slot_generation     = storage.team_slot_generation     or {}
     storage.team_names               = storage.team_names               or {}
     storage.team_clock_start         = storage.team_clock_start         or {}
     storage.left_teams               = storage.left_teams               or {}
     storage.seen_players             = storage.seen_players             or {}
     storage.player_last_seen         = storage.player_last_seen         or {}
+    storage.cleanup_selection        = storage.cleanup_selection        or {}
+    storage.cleanup_sort             = storage.cleanup_sort             or {}
+    storage.cleanup_pending          = storage.cleanup_pending          or {}
+    storage.cleanup_cache            = storage.cleanup_cache            or {}
+    storage.reaper_notice            = storage.reaper_notice            or {}
+    reaper.on_configuration_changed()
+    starter_scope.init_storage()
 
     -- Back-fill seen_players so existing players aren't greeted as new after an update.
     for _, player in pairs(game.players) do

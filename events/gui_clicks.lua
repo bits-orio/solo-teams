@@ -21,6 +21,7 @@ local lfm_hint          = require("gui.lfm_hint")
 local pre_start         = require("scripts.pre_start")
 local start_playing_gui = require("gui.start_playing_gui")
 local buddy_store       = require("scripts.buddy_store")
+local cleanup_gui       = require("gui.cleanup")
 
 local M = {}
 
@@ -31,6 +32,7 @@ function M.register()
 
         if nav.dispatch_click(event) then return end
         if return_button.on_gui_click(event) then return end
+        if cleanup_gui.on_gui_click(event) then return end
         if confirm_gui.on_gui_click(event) then return end
         if follow_cam.on_gui_click(event) then teams_gui.update_all(); return end
 
@@ -43,14 +45,29 @@ function M.register()
                 if not force_name then return end
                 local default_group = game.permissions.get_group("Default")
                 if default_group then default_group.add_player(player) end
-                admin_gui.auto_populate_starter_items(player)
+                -- Backstop capture, for the cases the first-join capture in
+                -- player_lifecycle can't cover (MTS added to an already-running
+                -- save, or a player whose character wasn't ready at join time).
+                -- Gated on left_teams: a player who has been on a team before is
+                -- carrying whatever they built, and /mts-disband routes exactly
+                -- such a veteran back through the pen -- letting that snapshot
+                -- become the map's default loadout would hand every future player
+                -- a copy of someone's base. left_teams is written by both disband
+                -- branches (scripts/commands/admin.lua) and by a voluntary leave
+                -- (scripts/team_slots.lua), so it is the precise marker for "not a
+                -- fresh arrival". Normally a no-op: the first-join capture has
+                -- already latched by the time anyone reaches this button.
+                if not (storage.left_teams or {})[player.index] then
+                    admin_gui.auto_populate_starter_items(player)
+                end
                 landing_pen.grant_starter_items(player)
                 landing_pen.finish_spawn(player)
                 storage.pending_spawn_pop = storage.pending_spawn_pop or {}
                 storage.pending_spawn_pop[player.index] = player.force.name
                 h.spawn_into_world(player)
-                helpers.broadcast(helpers.colored_name(player.name, player.chat_color)
-                    .. " has joined " .. helpers.team_tag(player.force.name) .. ".")
+                helpers.broadcast({"mts-chat.joined-team",
+                    helpers.colored_name(player.name, player.chat_color),
+                    helpers.team_tag(player.force.name)})
                 h.refresh_all_gameplay_guis()
                 lfm_hint.show_for_leader(player)
                 if is_staged then

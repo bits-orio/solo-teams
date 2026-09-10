@@ -1,12 +1,13 @@
 -- Multi-Team Support - surface_utils.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Surface ownership queries, visibility management, and chart cleanup.
 -- Extracted from spectator.lua — these are surface-level concerns, not
 -- spectator-specific.
 
 local helpers = require("scripts.helpers")
+local chart_sync = require("scripts.chart_sync")
 
 local surface_utils = {}
 
@@ -30,6 +31,16 @@ local function seed_for_base(base)
     end
     local nauvis = game.surfaces["nauvis"]
     return nauvis and nauvis.map_gen_settings.seed or 0
+end
+
+--- The planet a surface REPRESENTS: its engine planet when set, else the
+--- base planet its team-variant name derives from ("mts-<planet>-<N>" /
+--- "team-<N>-<planet>"), else nil. Generic surface-identity query for
+--- consumers (exposed on mts-v1 as get_surface_planet).
+function surface_utils.represented_planet(surface)
+    if not surface or not surface.valid then return nil end
+    if surface.planet then return surface.planet.name end
+    return variant_base_planet(surface.name)
 end
 
 --- Given a surface, return the force name that owns it, or nil.
@@ -225,7 +236,10 @@ function surface_utils.cleanup_charts()
     local spec = game.forces["spectator"]
     if not spec then return end
 
-    local active_surfaces = {}
+    -- Anything a spectator is viewing right now, plus the platforms of every
+    -- spectated force. Planet surfaces were never protected before, so a
+    -- dormant team's chart vanished from under its viewer within five minutes.
+    local active_surfaces = chart_sync.viewed_surfaces()
     for _, target_fn in pairs(storage.spectating_target) do
         local force = game.forces[target_fn]
         if force then

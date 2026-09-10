@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/buddy_store.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Low-level store for pending buddy requests. Deliberately dependency-free (no
 -- require of force_utils/team_slots/pen_gui) so both the buddy-request GUI and

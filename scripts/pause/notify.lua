@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/pause/notify.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Player-facing pause notification: a persistent force alert while a team is
 -- paused (ADR-0004: alerts carry persistent team state, chat carries events).

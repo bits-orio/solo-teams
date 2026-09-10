@@ -31,6 +31,12 @@ local force_utils    = require("scripts.force_utils")
 local helpers        = require("scripts.helpers")
 local lfm_hint       = require("gui.lfm_hint")
 local spectator      = require("scripts.spectator")
+local hud_clock      = require("gui.hud_clock")
+local team_modifiers = require("scripts.team_modifiers")
+local reaper         = require("scripts.reaper")
+local reaper_config  = require("scripts.reaper.config")
+local reaper_execute = require("scripts.reaper.execute")
+local cleanup_gui    = require("gui.cleanup")
 
 local DISCORD_REMINDER_TICKS = 6 * 60 * 60 * 60  -- 6 hours at 60 UPS
 
@@ -66,6 +72,8 @@ function M.register()
         surface_utils.on_surface_created(surface)
         local owner = surface_utils.get_owner(surface)
         if owner then
+            -- Owner team's modifiers (e.g. peaceful) carry over to new surfaces.
+            team_modifiers.apply_to_surface(surface, owner)
             spawn_labels.draw(owner, surface)
             -- Skip the inline raise for a surface create_team_surface is still
             -- building; it re-raises after planet association + chunk pre-gen so
@@ -76,6 +84,12 @@ function M.register()
             teams_gui.update_all()
         end
         planet_map.hide_base_planets_for_all()
+    end)
+
+    -- Bank a team's production BEFORE the engine discards it with the surface.
+    -- on_surface_deleted is too late: the statistics are already gone by then.
+    script.on_event(defines.events.on_pre_surface_deleted, function(event)
+        reaper.on_pre_surface_deleted(event)
     end)
 
     script.on_event(defines.events.on_force_reset, function(event)
@@ -109,11 +123,14 @@ function M.register()
     -- in a deterministic order.
     script.on_event(remote_api.events.on_team_created, function(e)
         gridlocked.on_team_created(e)
+        reaper.on_team_changed()   -- slot pressure, dispatched not polled
     end)
     script.on_event(remote_api.events.on_team_released, function(e)
         ultracube_compat.on_team_released(e)   -- fresh cube + victory reset
         space_is_fake.on_team_released(e)       -- clear SiF starting-area guard
         gridlocked.on_team_released(e)          -- reset chunk-point balance
+        reaper.on_team_released(e)              -- drop the slot's banked production
+        cleanup_gui.refresh_badges_all()
     end)
 
     -- dangOreus compat: block non-miners on ore, spill on destroyed containers.
@@ -182,6 +199,11 @@ function M.register()
     script.on_nth_tick(10,    function() pause_control.tick() end)
     -- Remember each player's home-view zoom so returning from spectating
     -- another team restores it (no zoom-changed event exists).
+    -- Staged bulk disband: one team per quarter-second so a 20-team sweep
+    -- never deletes 20 surfaces inside a single tick.
+    script.on_nth_tick(reaper_execute.DRAIN_INTERVAL, function()
+        reaper_execute.tick()
+    end)
     script.on_nth_tick(20,    function() spectator.track_home_zoom() end)
     script.on_nth_tick(30,    function()
         chunk_trim.tick()
@@ -192,18 +214,36 @@ function M.register()
         -- handler per period -- a separate on_nth_tick(30) would clobber this one.
         if any_team_researching() then teams_gui.update_queue_progress_all() end
     end)
+    script.on_nth_tick(60,    function()
+        -- Colour drift is handled by the on_player_color_changed event (2.1),
+        -- not polled here.
+        -- One-second team clock refresh: the top-bar HUD clock for every
+        -- connected player, and the per-card clocks for viewers with the
+        -- Teams frame open (in-place caption writes, no rebuild). Folded in
+        -- here — on_nth_tick keys one handler per period.
+        hud_clock.update_all()
+        teams_gui.update_clock_labels_all()
+    end)
     script.on_nth_tick(300,   function()
         if milestones.tick() then awards_gui.update_all() end
     end)
+    -- Spawn-label clocks: minute resolution, but refreshed every 10s so the
+    -- rounded minute is never visibly stale. Touches only the rendering text
+    -- objects of teams that have labels drawn.
+    script.on_nth_tick(600,   function() spawn_labels.refresh_all() end)
     script.on_nth_tick(3600,  function() teams_gui.update_activity_labels_all() end)
     script.on_nth_tick(18000, function() surface_utils.cleanup_charts() end)
+    -- Fixed hourly wake-up; the reaper itself decides whether cycle_hours
+    -- have elapsed. A constant period keeps on_load registration identical.
+    script.on_nth_tick(reaper_config.HEARTBEAT_TICKS, function()
+        reaper.heartbeat()
+        cleanup_gui.refresh_badges_all()
+    end)
     script.on_nth_tick(DISCORD_REMINDER_TICKS, function()
         if game.tick == 0 then return end
         local discord_url = settings.global["mts_discord_url"].value
         if discord_url ~= "" then
-            helpers.broadcast(
-                "Join our Discord for reset notifications and to vote on the next game: " .. discord_url
-            )
+            helpers.broadcast({"mts-chat.discord-reminder", discord_url})
         end
     end)
 end

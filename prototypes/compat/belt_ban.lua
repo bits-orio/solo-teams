@@ -1,6 +1,6 @@
 -- Multi-Team Support - prototypes/compat/belt_ban.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Data-stage compat shim for the "belt-ban" mod (No Belts - Challenge Mode).
 --

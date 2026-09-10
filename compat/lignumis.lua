@@ -1,6 +1,6 @@
 -- Multi-Team Support - compat/lignumis.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Status: PLACEHOLDER. No active code.
 --

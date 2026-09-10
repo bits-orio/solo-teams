@@ -17,11 +17,16 @@ local friendship    = require("gui.friendship")
 local force_utils   = require("scripts.force_utils")
 local blueprint_lock = require("scripts.blueprint_lock")
 local follow_cam    = require("gui.follow_cam")
+local team_modifiers = require("scripts.team_modifiers")
+local hud_clock     = require("gui.hud_clock")
+local chat_channel  = require("scripts.chat_channel")
+local cleanup_gui   = require("gui.cleanup")
 
 local M = {}
 
 function M.register()
     script.on_event(defines.events.on_gui_confirmed, function(event)
+        if cleanup_gui.on_gui_confirmed(event) then return end
         admin_gui.on_gui_confirmed(event)
         team_settings.on_gui_confirmed(event)
     end)
@@ -31,8 +36,8 @@ function M.register()
             local p = game.get_player(event.player_index)
             local new_limit = admin_gui.buddy_team_limit()
             if p then
-                helpers.broadcast("[Admin] " .. helpers.colored_name(p.name, p.chat_color)
-                    .. " set max team size to " .. new_limit)
+                helpers.broadcast({"mts-chat.admin-set-team-size",
+                    helpers.colored_name(p.name, p.chat_color), new_limit})
             end
             -- Auto-clear LFM for any team whose current size meets or exceeds the new limit.
             storage.team_looking_for_more = storage.team_looking_for_more or {}
@@ -43,8 +48,7 @@ function M.register()
                     local force = game.forces[fn]
                     if force and #force.players >= new_limit then
                         storage.team_looking_for_more[fn] = nil
-                        helpers.broadcast("[Team] " .. helpers.team_tag(fn)
-                            .. " is no longer recruiting (team size limit reached).")
+                        helpers.broadcast({"mts-chat.team-no-longer-recruiting", helpers.team_tag(fn)})
                         team_settings.update_all_for_force(fn)
                     end
                 end
@@ -54,6 +58,7 @@ function M.register()
     end)
 
     script.on_event(defines.events.on_gui_elem_changed, function(event)
+        if cleanup_gui.on_gui_elem_changed(event) then return end
         stats_gui.on_gui_elem_changed(event)
     end)
 
@@ -86,6 +91,7 @@ function M.register()
     end)
 
     script.on_event(defines.events.on_gui_checked_state_changed, function(event)
+        if cleanup_gui.on_gui_checked_state_changed(event) then return end
         local el = event.element
         if el and el.valid and el.name == "sb_show_offline_toggle" then
             local player = game.get_player(event.player_index)
@@ -98,15 +104,61 @@ function M.register()
             return
         end
 
+        -- Per-team modifier checkboxes (admin GUI, non-competitive mode).
+        if el and el.valid and el.tags and el.tags.sb_team_modifier then
+            local admin_player = game.get_player(event.player_index)
+            if admin_player and admin_player.admin then
+                local changed = team_modifiers.set(
+                    el.tags.sb_target_force, el.tags.sb_team_modifier,
+                    el.state, admin_player)
+                if changed then
+                    teams_gui.update_all()   -- card modifier lines
+                    hud_clock.update_all()   -- "non-competitive · <modifier>" tags
+                    -- Rebuild every open admin panel so the [non-competitive]
+                    -- badge next to the team name appears immediately (for
+                    -- the clicking admin and any other admin watching).
+                    for _, p in pairs(game.players) do
+                        if p.connected and p.admin and p.gui.screen.sb_admin_frame then
+                            admin_gui.build_admin_gui(p)
+                        end
+                    end
+                else
+                    -- Rejected (e.g. mode raced off) — snap the checkbox back.
+                    admin_gui.build_admin_gui(admin_player)
+                end
+            end
+            return
+        end
+
+        -- Veto leaving non-competitive mode while any team is MARKED
+        -- non-competitive (it ever had a modifier — removing it doesn't
+        -- clear the mark; only disbanding the team does). An accidental
+        -- enable that never marked a team toggles off freely. Checked
+        -- BEFORE the generic flag handler so neither the flag flip nor its
+        -- "[Admin] ... disabled ..." broadcast happens.
+        if el and el.valid and el.tags
+           and el.tags.sb_admin_flag == "non_competitive_enabled"
+           and not el.state then
+            local reason = team_modifiers.ls_disable_blocked_reason()
+            if reason then
+                local admin_player = game.get_player(event.player_index)
+                if admin_player then
+                    admin_player.print(reason)
+                    admin_gui.build_admin_gui(admin_player)  -- snap checkbox back on
+                end
+                return
+            end
+        end
+
         local changed_flag = admin_gui.on_gui_checked_state_changed(event)
         if changed_flag then
             local admin_player = game.get_player(event.player_index)
             if admin_player then
-                local state_str = admin_gui.flag(changed_flag) and "enabled" or "disabled"
-                local label = admin_gui.get_flag_label(changed_flag)
-                helpers.broadcast("[Admin] "
-                    .. helpers.colored_name(admin_player.name, admin_player.chat_color)
-                    .. " " .. state_str .. " " .. label)
+                local cn    = helpers.colored_name(admin_player.name, admin_player.chat_color)
+                local label = admin_gui.ls_get_flag_label(changed_flag)
+                helpers.broadcast(admin_gui.flag(changed_flag)
+                    and {"mts-chat.admin-flag-enabled", cn, label}
+                    or  {"mts-chat.admin-flag-disabled", cn, label})
             end
             if changed_flag == "buddy_join_enabled" then
                 landing_pen.update_pen_gui_all()
@@ -115,6 +167,14 @@ function M.register()
                         admin_gui.build_admin_gui(p)
                     end
                 end
+            end
+            if changed_flag == "individual_chat_enabled" then
+                -- Migrate first, then repaint: on_scope_change carries each
+                -- player's channel across the flip so nobody's private
+                -- conversation starts broadcasting, and update_all restamps
+                -- every switch and chat badge from the migrated state.
+                chat_channel.on_scope_change(admin_gui.flag("individual_chat_enabled"))
+                hud_clock.update_all()
             end
             if changed_flag == "friendship_enabled" then
                 if not admin_gui.flag("friendship_enabled") then friendship.break_all() end
@@ -136,6 +196,22 @@ function M.register()
             end
             if changed_flag == "allow_blueprint_imports" then
                 blueprint_lock.apply()
+            end
+            if changed_flag == "non_competitive_enabled" then
+                if admin_gui.flag("non_competitive_enabled") then
+                    helpers.broadcast({"mts-chat.noncompetitive-mode-on"})
+                else
+                    team_modifiers.revert_all()
+                end
+                -- Mode is surfaced in the HUD tag, Teams GUI title, and the
+                -- admin panel's modifier section — refresh all three.
+                hud_clock.update_all()
+                teams_gui.update_all()
+                for _, p in pairs(game.players) do
+                    if p.connected and p.admin and p.gui.screen.sb_admin_frame then
+                        admin_gui.build_admin_gui(p)
+                    end
+                end
             end
             return
         end

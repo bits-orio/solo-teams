@@ -1,6 +1,6 @@
 -- Multi-Team Support - prototypes/entities/alert-anchor.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- A hidden, inert per-team anchor entity for force alerts. 2.1's
 -- LuaForce::add_custom_alert needs an entity to point at, and stock MTS has no

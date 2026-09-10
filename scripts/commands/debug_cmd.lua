@@ -2,15 +2,20 @@
 -- /mts-debug: admin scheduling sandbox (research, stop, list).
 
 local debug_engine = require("scripts.debug")
+local locale_audit = require("scripts.locale_audit")
 
 local M = {}
 
+-- /mts-debug output deliberately stays English (debug surface, locale policy);
+-- only the add_command help string carries a locale key.
 local DEBUG_HELP = table.concat({
     "/mts-debug research <tech> [--players a,b,c] [--delay N]",
     "    Run tech:research_recursive() on each player's force.",
     "    --players defaults to caller. --delay N inserts N ticks between each (default 0).",
     "/mts-debug stop <id|all>",
     "/mts-debug list",
+    "/mts-debug locale",
+    "    Verify every mts-* locale key resolves for your locale (missing-key detector).",
     "/mts-debug help",
 }, "\n")
 
@@ -49,7 +54,7 @@ end
 
 function M.register()
     commands.add_command("mts-debug",
-        "Schedule debug actions (admin only). Use /mts-debug help for usage.",
+        {"mts-cmd.debug-help"},
         function(cmd)
             local caller = cmd.player_index and game.get_player(cmd.player_index)
             if not caller then game.print("This command can only be used by a player."); return end
@@ -61,11 +66,18 @@ function M.register()
             local sub = tokens[1]
             if not sub or sub == "help" then caller.print(DEBUG_HELP); return end
 
+            if sub == "locale" then
+                locale_audit.start(caller)
+                return
+            end
+
             if sub == "list" then
                 local rows = debug_engine.list()
                 if #rows == 0 then caller.print("[mts-debug] No tasks queued."); return end
                 local lines = {"[mts-debug] Tasks:"}
                 for _, r in ipairs(rows) do
+                    -- TODO(locale-stage5): r.kind/r.label/r.detail are English
+                    -- strings built in scripts/debug.lua and persisted in storage.
                     lines[#lines + 1] = string.format("  #%d  %s  %s  (%s)",
                         r.id, r.kind, r.label, r.detail)
                 end

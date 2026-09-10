@@ -1,6 +1,6 @@
 -- Multi-Team Support - compat/space_is_fake.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Compatibility with Space Is Fake ("Space Age compressed to Nauvis") by Crethor.
 -- https://mods.factorio.com/mod/space-is-fake

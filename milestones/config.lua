@@ -1,6 +1,6 @@
 -- Multi-Team Support - milestones/config.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Milestone tracker configuration. Edit this file to add or modify
 -- tracked categories, thresholds, and item discovery logic.
@@ -13,6 +13,8 @@
 --   get_count      - function(force, item_name) returning total produced
 --
 -- To add a new tracker, append a new table to config.trackers.
+
+local science_packs = require("scripts.science_packs")
 
 local surface_utils = require("scripts.surface_utils")
 
@@ -27,8 +29,12 @@ local function total_produced(force, item_name)
     for _, surface in ipairs(surface_utils.owned_surfaces_by_force(force.name)) do
         local stats = force.get_item_production_statistics(surface)
         if stats then
-            -- get_input_count returns total produced (items flowing into the stats)
-            total = total + (stats.get_input_count(item_name) or 0)
+            -- input_counts merges across qualities; get_input_count with a
+            -- bare name is normal-quality only and under-counted quality
+            -- production (measured 108 vs the true 208 -- see
+            -- docs/PRODUCTION_STATS_PLAN.md). Fluids have no quality axis,
+            -- so total_produced_fluid below keeps its direct read.
+            total = total + (stats.input_counts[item_name] or 0)
         end
     end
     return total
@@ -48,18 +54,15 @@ end
 
 config.trackers = {
     -- ═══ Science Packs ═══════════════════════════════════════════════════
-    -- Auto-detects all "tool" type items at runtime (works with any mod combo).
+    -- Auto-detects science packs from what the labs accept (works with any mod
+    -- combo; 2.1 science packs are no longer type "tool").
     -- announce_first = true means we announce first team to produce any science.
     {
         category       = "science",
         announce_first = true,
         thresholds     = { 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 500000, 1000000, 5000000  },
         discover_items = function()
-            local items = {}
-            for name, proto in pairs(prototypes.item) do
-                if proto.type == "tool" then items[name] = true end
-            end
-            return items
+            return science_packs.lab_input_set()
         end,
         get_count = total_produced,
     },

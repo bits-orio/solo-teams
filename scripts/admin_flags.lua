@@ -3,6 +3,7 @@
 -- No GUI; imported by gui/admin.lua which re-exports everything.
 
 local helpers = require("scripts.helpers")
+local starter_scope = require("scripts.starter_scope")
 
 local M = {}
 
@@ -21,56 +22,94 @@ end
 
 -- ─── Flag Definitions ──────────────────────────────────────────────────
 
+-- Each def carries plain label/tooltip strings AND ls_* LocalisedString twins
+-- (locale/en/modifiers.cfg): unconverted GUI slices still render the plain
+-- fields; converted ones use ls_*. The final locale sweep folds the plain
+-- fields away.
 M.FLAGS = {
     {
         key     = "landing_pen_enabled",
         label   = "Landing Pen",
         tooltip = "When enabled, new players wait in the Landing Pen before spawning into the game.",
+        ls_label   = {"mts-gui.flag-landing-pen"},
+        ls_tooltip = {"mts-tip.flag-landing-pen"},
     },
     {
         key     = "buddy_join_enabled",
         label   = "Multi-player teams",
         tooltip = "When enabled, players in the Landing Pen can request to join an existing team.",
+        ls_label   = {"mts-gui.flag-buddy-join"},
+        ls_tooltip = {"mts-tip.flag-buddy-join"},
     },
     {
         key     = "friendship_enabled",
         label   = "Allow Friendship",
         tooltip = "When enabled, players can send friend requests. Disabling breaks all existing friendships.",
+        ls_label   = {"mts-gui.flag-friendship"},
+        ls_tooltip = {"mts-tip.flag-friendship"},
     },
     {
         key     = "spectate_notifications_enabled",
         label   = "Spectate Notifications",
         tooltip = "When enabled, all players are notified when someone starts or stops spectating.",
+        ls_label   = {"mts-gui.flag-spectate-notifications"},
+        ls_tooltip = {"mts-tip.flag-spectate-notifications"},
     },
     {
         key     = "popup_text_enabled",
         label   = "Text Popups",
         tooltip = "When enabled, animated text popups appear on spawn, team join, milestones, and player death.",
+        ls_label   = {"mts-gui.flag-popup-text"},
+        ls_tooltip = {"mts-tip.flag-popup-text"},
+    },
+    {
+        key     = "individual_chat_enabled",
+        label   = "Individual Chat Mode",
+        tooltip = "When enabled, each player sets their own global/team chat mode instead of the whole team switching together. The [GLOBAL]/[TEAM] badge next to each name shows which mode that player is in. Flipping this never exposes a private conversation: switching to individual gives every member their team's current mode, and switching back makes a team team-only if any of its members was.",
+        ls_label   = {"mts-gui.flag-individual-chat"},
+        ls_tooltip = {"mts-tip.flag-individual-chat"},
     },
     {
         key     = "allow_blueprint_imports",
         label   = "Allow Blueprint Imports",
         tooltip = "When enabled, players can import external blueprints via chat strings, the blueprint library, and the import-string button. When disabled, those imports are blocked (in-game blueprint creation -- alt-shift-click, copy-paste of placed entities -- still works either way).",
+        ls_label   = {"mts-gui.flag-blueprint-imports"},
+        ls_tooltip = {"mts-tip.flag-blueprint-imports"},
     },
     {
         key     = "staged_start_enabled",
         label   = "Staged Start (Speedrun)",
         tooltip = "When enabled, a new team's clock does not start until the leader clicks \"Start Playing\". The team is locked out of all game actions until then, but can browse the map. Designed for speedrun servers.",
+        ls_label   = {"mts-gui.flag-staged-start"},
+        ls_tooltip = {"mts-tip.flag-staged-start"},
     },
     {
         key     = "color_fix_enabled",
         label   = "Readable Player Colours",
         tooltip = "When enabled, players' colours are automatically kept readable and distinct: dark colours are brightened, brown shades are shifted to a vivid orange, and clashing colours are spread apart -- on join and whenever a player changes colour.",
+        ls_label   = {"mts-gui.flag-color-fix"},
+        ls_tooltip = {"mts-tip.flag-color-fix"},
+    },
+    {
+        key     = "non_competitive_enabled",
+        label   = "Non-competitive Mode",
+        tooltip = "When enabled, admins can give individual teams easier settings via per-team modifiers (e.g. peaceful biters), so team times are no longer comparable and record announcements are tagged. Every modifier change is announced to all players. A team that ever receives a modifier is permanently marked non-competitive; returning to competitive mode requires disbanding all marked teams. Intended for private servers with mixed-skill groups.",
+        ls_label   = {"mts-gui.flag-non-competitive"},
+        ls_tooltip = {"mts-tip.flag-non-competitive"},
     },
     {
         key     = "team_alerts_enabled",
         label   = "Team Pause Alerts",
         tooltip = "When enabled, a team's members see a persistent map alert while their team is paused (by an admin, or by a mod's scripted pause such as a docking cycle). The alert clears on resume. mts-v1 pause events fire regardless of this flag.",
+        ls_label   = {"mts-gui.flag-team-alerts"},
+        ls_tooltip = {"mts-tip.flag-team-alerts"},
     },
     {
         key     = "team_pins_enabled",
         label   = "Team Map Pins",
         tooltip = "When enabled, teammates are automatically pinned on each other's maps when someone joins a team, and every player row in the Teams panel gets a Pin/Unpin button (usable across teams). A pin a player dismisses is never re-created automatically.",
+        ls_label   = {"mts-gui.flag-team-pins"},
+        ls_tooltip = {"mts-tip.flag-team-pins"},
     },
 }
 
@@ -80,11 +119,13 @@ local FLAG_DEFAULTS = {
     friendship_enabled              = true,
     spectate_notifications_enabled  = false,
     popup_text_enabled              = true,
+    individual_chat_enabled         = false,  -- team-synced chat is the default
     allow_blueprint_imports         = false,  -- imports blocked by default
     staged_start_enabled            = false,  -- opt-in; intended for speedrun servers
     color_fix_enabled               = true,   -- auto-keep player colours readable + distinct
     team_alerts_enabled             = true,   -- persistent map alert while a team is paused
     team_pins_enabled               = true,   -- auto-pin teammates + Pin buttons in the Teams panel
+    non_competitive_enabled         = false,  -- opt-in; allows per-team modifiers (private servers)
 }
 
 M.BUDDY_TEAM_LIMIT_MIN     = 2
@@ -130,53 +171,86 @@ function M.get_flag_label(key)
     return key
 end
 
+--- LocalisedString twin of get_flag_label (dual API: consumers composing
+--- flag-change broadcasts migrate to this, then the plain lookup goes).
+--- The raw-key fallback stays a plain string — an unknown flag has no key.
+function M.ls_get_flag_label(key)
+    for _, def in ipairs(M.FLAGS) do
+        if def.key == key then return def.ls_label end
+    end
+    return key
+end
+
 function M.get_starter_items()
     return storage.starter_items
 end
 
 -- ─── Starter Item Helpers ──────────────────────────────────────────────
 
---- Fill the equipment grid of the armor `entry` was just inserted as. Finds
---- the first same-named stack with an empty grid (the fresh insert; a worn
---- armor the player already loaded keeps its equipment), then re-creates the
---- captured layout. Each put is pcall'd so one equipment name removed by a
---- mod change doesn't void the rest of the grid.
-local function restore_grid_equipment(player, entry)
-    for _, inv_type in pairs({
-        defines.inventory.character_armor,
-        defines.inventory.character_main,
-    }) do
-        local inv = player.get_inventory(inv_type)
-        if inv then
-            for i = 1, #inv do
-                local stack = inv[i]
-                if stack and stack.valid_for_read and stack.name == entry.name
-                   and stack.grid and #stack.grid.equipment == 0 then
-                    for _, eq in pairs(entry.grid) do
-                        pcall(function()
-                            local placed = stack.grid.put{
-                                name     = eq.name,
-                                position = eq.position,
-                                quality  = eq.quality,
-                            }
-                            if placed and eq.energy then placed.energy = eq.energy end
-                        end)
-                    end
-                    return
-                end
-            end
-        end
+--- Re-create a captured equipment layout inside one specific stack. Each put
+--- is pcall'd so one equipment name removed by a mod change doesn't void the
+--- rest of the grid.
+local function fill_grid(stack, grid)
+    if not stack.grid then return end
+    for _, eq in pairs(grid) do
+        pcall(function()
+            local placed = stack.grid.put{
+                name     = eq.name,
+                position = eq.position,
+                quality  = eq.quality,
+            }
+            if placed and eq.energy then placed.energy = eq.energy end
+        end)
     end
+end
+
+--- Create one grid-bearing item (in practice: armor) in a slot we pick, and
+--- return that exact stack.
+---
+--- Placement is by handle rather than a name search after the fact. The player
+--- can already be carrying a same-named armor -- worn, or granted by a starter
+--- mod such as FasterStart -- and a post-insert search lands on whichever stack
+--- it happens to reach first, loading the armor they already had and leaving
+--- the one we just granted empty.
+---
+--- The armor slot is tried first so the kit arrives worn; anything that will
+--- not go there (already occupied, or a grid item that is not armor) falls back
+--- to the first free main-inventory slot. Returns nil when there is no room.
+local function place_grid_item(player, name, quality)
+    local spec = {name = name, count = 1, quality = quality}
+    local armor_inv = player.get_inventory(defines.inventory.character_armor)
+    -- can_insert respects the slot filter, so a grid item that is not armor
+    -- (a spidertron, say) is rejected here rather than by set_stack.
+    if armor_inv and armor_inv.is_empty() and armor_inv.can_insert(spec)
+       and armor_inv[1].set_stack(spec) then
+        return armor_inv[1]
+    end
+    local main = player.get_inventory(defines.inventory.character_main)
+    local slot = main and main.find_empty_stack()
+    if slot and slot.set_stack(spec) then return slot end
+    return nil
 end
 
 --- Insert one starter-item entry into a player, restoring armor equipment
 --- when the entry carries a captured grid. The engine insert gets a clean
---- {name, count} table -- entry tables can carry extra fields (grid) that
---- ItemStackIdentification would reject.
+--- {name, count, quality} table -- entry tables can carry extra fields (grid)
+--- that ItemStackIdentification would reject.
 function M.insert_starter_item(player, item)
     pcall(function()
-        player.insert{name = item.name, count = item.count}
-        if item.grid then restore_grid_equipment(player, item) end
+        local count = item.count or 1
+        if item.grid then
+            -- Only one layout was captured, so only the first copy is loaded;
+            -- any further copies are inserted plain, as before.
+            local stack = place_grid_item(player, item.name, item.quality)
+            if stack then
+                fill_grid(stack, item.grid)
+                if count > 1 then
+                    player.insert{name = item.name, count = count - 1, quality = item.quality}
+                end
+                return
+            end
+        end
+        player.insert{name = item.name, count = count, quality = item.quality}
     end)
 end
 
@@ -195,34 +269,55 @@ function M.distribute_items_to_spawned(items)
         delivery.raise(clean)
         return
     end
+    -- Team-scoped entries are one per FORCE, so hand each team exactly one copy
+    -- (to the first spawned member we reach) instead of one to every player --
+    -- otherwise an admin adding a team item mid-run undoes the whole point of the
+    -- scope split. Player-scoped entries still go to everyone.
+    local team_served = {}
     storage.spawned_players = storage.spawned_players or {}
     for idx in pairs(storage.spawned_players) do
         local p = game.get_player(idx)
         if p and p.valid and p.connected and p.character then
+            local force_name = p.force.name
+            local on_team    = helpers.is_team_force(force_name)
             for _, item in pairs(items) do
-                M.insert_starter_item(p, item)
+                if not starter_scope.is_team(item) then
+                    M.insert_starter_item(p, item)
+                elseif on_team and not team_served[force_name]
+                       and not starter_scope.team_has_kit(force_name) then
+                    M.insert_starter_item(p, item)
+                end
+            end
+            -- Mark AFTER the item loop so every team entry lands on the same
+            -- player, rather than the first entry claiming the team and the rest
+            -- being skipped.
+            if on_team and not team_served[force_name] then
+                team_served[force_name] = true
             end
         end
     end
 end
 
---- Broadcast that an admin added entries to the starter items list.
+--- Broadcast that an admin added entries to the starter items list. In-game
+--- text only; the bridge/delivery consumers get item DATA via
+--- distribute_items_to_spawned's payload, never this message.
 function M.announce_starter_items_added(items, admin_player)
     if not items or #items == 0 then return end
     local parts = {}
     for _, item in ipairs(items) do
-        parts[#parts + 1] = item.count .. "x " .. helpers.item_rich_name(item.name)
+        parts[#parts + 1] = {"mts-chat.item-count", item.count, helpers.item_rich_name(item.name)}
     end
     local who = admin_player
         and helpers.colored_name(admin_player.name, admin_player.chat_color)
-        or "Admin"
-    helpers.broadcast(who .. " added " .. table.concat(parts, ", ") .. " to the starter items list.")
+        or {"mts-chat.admin-actor"}
+    helpers.broadcast({"mts-chat.starter-items-added", who,
+        helpers.ls_join(parts, ", ")})
 end
 
 --- Serialize an armor stack's equipment grid into a storage-safe table, or
 --- nil when the stack has no grid / an empty one. Captures name, position,
 --- quality, and stored energy per equipment so a granted copy comes out
---- loaded the same way (e.g. faster-start's pre-filled power armor).
+--- loaded the same way (e.g. FasterStart's pre-filled modular armor).
 local function serialize_grid(stack)
     local grid = stack.grid
     if not grid then return nil end
@@ -239,9 +334,21 @@ local function serialize_grid(stack)
     return out
 end
 
+--- Record the equipment layout of `stack` on `entry`, along with the stack's own
+--- quality. Grid layouts are quality-specific -- a higher-quality armor has a
+--- bigger grid -- so a copy granted at normal quality would silently drop every
+--- equipment whose captured position falls outside it. Quality is carried only
+--- for grid-bearing entries; plain items keep the existing name-only merge.
+local function adopt_grid(entry, stack)
+    entry.grid = serialize_grid(stack)
+    if entry.grid then
+        entry.quality = stack.quality and stack.quality.name or nil
+    end
+end
+
 --- Collect all items from a player's character inventories. Entries are
---- {name, count} plus an optional `grid` (equipment layout) captured from
---- the first stack of that name that carries one.
+--- {name, count} plus an optional `grid` (equipment layout) and the `quality`
+--- it was captured at, taken from the first stack of that name that carries one.
 function M.collect_character_items(player)
     local items, seen = {}, {}
     if not player.character then return items end
@@ -256,17 +363,13 @@ function M.collect_character_items(player)
             for i = 1, #inv do
                 local stack = inv[i]
                 if stack and stack.valid_for_read then
-                    if seen[stack.name] then
-                        seen[stack.name].count = seen[stack.name].count + stack.count
-                        if not seen[stack.name].grid then
-                            seen[stack.name].grid = serialize_grid(stack)
-                        end
+                    local entry = seen[stack.name]
+                    if entry then
+                        entry.count = entry.count + stack.count
+                        if not entry.grid then adopt_grid(entry, stack) end
                     else
-                        local entry = {
-                            name  = stack.name,
-                            count = stack.count,
-                            grid  = serialize_grid(stack),
-                        }
+                        entry = {name = stack.name, count = stack.count}
+                        adopt_grid(entry, stack)
                         seen[stack.name] = entry
                         items[#items + 1] = entry
                     end
@@ -283,10 +386,20 @@ end
 --- override (e.g. Brave New MTS) the same capture is what pre-populates the list
 --- that then gets routed to team logistic chests instead of player inventories
 --- (the spawning character is emptied separately, in on_player_created).
+---
+--- Idempotent by design -- callers fire it from more than one point in the spawn
+--- flow (first join, and a left_teams-gated backstop at pen exit) and only the
+--- first one that finds a non-empty character sticks. An EMPTY result does not
+--- latch: it means we looked before the mod stack finished handing out the kit, so
+--- a later caller should get another go rather than freezing "nothing" in as the
+--- map's loadout.
 function M.auto_populate_starter_items(player)
-    if storage.starter_items then return end
+    if storage.starter_items and #storage.starter_items > 0 then return end
     if not player.character then return end
     storage.starter_items = M.collect_character_items(player)
+    -- Let compat modules claim the bulk map resources as team-scoped before the
+    -- list is ever granted (see scripts/starter_scope.lua).
+    starter_scope.seed_defaults(storage.starter_items)
     if #storage.starter_items > 0 then
         log("[multi-team-support] auto-populated starter items from " .. player.name
             .. " (" .. #storage.starter_items .. " item types)")

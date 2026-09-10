@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/team_clock.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Per-team "online time": wall-clock ticks during which the team had at least
 -- one connected member. Unlike the team birth clock (storage.team_clock_start),

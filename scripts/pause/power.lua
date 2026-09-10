@@ -1,6 +1,6 @@
 -- Multi-Team Support - scripts/pause/power.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- The team pause freeze: disable every power SOURCE the team owns.
 --

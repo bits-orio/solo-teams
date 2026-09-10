@@ -1,4 +1,293 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.7.0
+Date: 2026-09-09
+  Changes:
+    - Factorio 2.1 line. Requires Factorio 2.1; the 0.6.x releases stay on Factorio 2.0.
+    - Ported the APIs 2.1 removed: power sources are frozen through disabled_by_script, script-placed
+      entities are locked with minable_flag, and recipe categories are read as a list.
+  Features:
+    - Player colour changes are picked up from the game's own colour-changed event instead of a
+      periodic poll.
+    - Players in the landing pen no longer see the vanilla space map (2.1 disable_space_map).
+    - A paused team sees a map alert saying so, worded differently for an admin pause and a script
+      pause; the alert clears on resume. New mts-v1 events on_team_paused and on_team_resumed, with
+      admin pauses mirrored to the Discord bridge.
+    - Team map pins: joining a team pins your teammates, and the Teams panel has a Pin button on
+      each member row.
+    - Recycled team slots inherit the 2.1 force unlocks (logistic network, platform travel,
+      landing-pad limits) like the quality and platform unlocks they already copied.
+    - The pen info panel and passive spectate radars are marked protected, so automated weapons
+      never target them.
+---------------------------------------------------------------------------------------------------
+Version: 0.6.3
+Date: 2026-09-02
+  Features:
+    - Team Cleanup panel for admins (button on the Admin panel, or /mts-cleanup). One row per
+      occupied slot with status, offline time, time played, tier-1 and tier-2 science, and
+      entities built. The rows the inactive rule would take are ticked in advance; untick or tick
+      more, sort any column, and "Disband selected" names every team in a confirm before anything
+      happens. A map button beside each team spectates it. Offline time is coloured green to red
+      by how far past the disband window the team is.
+    - Inactive-team check, shipped disarmed. Every six hours it measures each occupied slot and
+      records a verdict; nothing is removed until an admin ticks "Disband flagged teams
+      automatically" in the panel. The rule: every member offline for the configured window
+      (default one day), zero tier-1 science, at least one member. Tier-1 and tier-2 are read from
+      the modpack's own lab inputs by unlock depth and filtered to items something can actually
+      make, so a pack whose labs accept a launch-only pack does not read every team as zero. The
+      check refuses to run, and says why, if it cannot resolve a usable marker.
+    - Shadow evidence for that rule. /mts-reaper report shows how many flagged teams came back
+      online and how often the check agreed with disbands made by hand, so the window can be
+      judged on numbers before arming. /mts-reaper dump writes the full measurement as CSV.
+    - Bulk disband is staged and announced: a red warning to everyone at 60, 30 and 10 seconds and
+      a 3-2-1 countdown, then one red line per team as its teardown starts, one team per
+      quarter-second so the server never deletes twenty surfaces in a single tick. Cancelling is
+      broadcast too. When the automatic check queues a sweep, every admin online gets a dialog
+      naming the teams with "Stop the sweep" and "Let it run".
+    - Teams panel: every offline member now shows how long they have been gone ("2d 5h ago"),
+      coloured by age, and every member shows total time played, so a leader can tell which of
+      five members are the three who stopped showing up. Hovering a row shows a card with the
+      name, status, full time played, and a note that idle time counts.
+  Changes:
+    - Thresholds for the inactive-team check live in the save and are edited from the Cleanup
+      panel, not in Mod Settings, because Mod Settings are visible to every player.
+    - Production Stats: items nothing in the pack can produce now sort last instead of first in
+      the auto-discovered tabs. On packs without Space Age this moves space-science-pack to the
+      end of the Science tab.
+    - Team production is banked before retire_team_surface removes a surface, so a team that
+      warped (MTS Dimension Warp) keeps its history for the inactive-team check.
+    - A member whose team was disbanded while they were offline is told so on their next join,
+      and lands in the landing pen.
+  Bugfixes:
+    - Spectating a dormant team showed a black screen. Chart sharing pushes a team's map into the
+      spectator force's own chart, and the periodic chart cleanup wiped that chart on every planet
+      surface, so a team with nobody online and no radars never re-sent it. Spectating from the
+      Cleanup panel now requests every chunk the team has charted, and the cleanup leaves alone
+      any surface a spectator is currently viewing.
+    - "Last seen" for a member whose client crashed, or who was online when the server restarted,
+      read as "never seen". It now falls back to the engine's own last-online tick.
+    - /mts-disband, the Cleanup panel and the automatic check share one teardown, so members,
+      surfaces and the freed slot are handled identically whichever path removes a team.
+  Info:
+    - A headless test harness under tests/ (not shipped in the mod) runs the inactive-team rule,
+      the marker resolution and the teardown paths under the same Lua 5.2 Factorio embeds, and
+      replays a real server audit through the shipped code.
+---------------------------------------------------------------------------------------------------
+Version: 0.6.2
+Date: 2026-08-31
+  Info:
+    - Relicensed from GPL-3.0-or-later back to MIT, the licence this mod shipped under before
+      0.4.43. LICENSE and all 62 source-file headers are updated. The mod portal's licence field
+      had never been changed away from MIT, so the three now agree again.
+  Changes:
+    - Retired the "Same start. Different finish." tagline. It is gone from the welcome screen, the
+      mod description, and the mod-description string in English, Spanish, Russian and German. The
+      welcome screen now opens straight into its sections.
+---------------------------------------------------------------------------------------------------
+Version: 0.6.1
+Date: 2026-08-27
+  Bugfixes:
+    - Sea Block compat: repaired eight recipes that require nickel plate, an item nothing in the
+      pack can produce -- Boiler 3, Fluid Burning Boiler 2, Burner Heat Source 2, Fluid Burning
+      Heat Source 2, Heat Pipe 2, Heat Exchanger 2, Roboport Antenna 2 and Roboport Chargepad 2.
+      All eight were researchable and permanently uncraftable, and between them they gate roughly
+      forty further items: the nuclear reactor, every boiler and heat exchanger tier above 2, and
+      every roboport, robochest, logistic zone expander and personal roboport tier above 1. The
+      ingredient substitutions match the upstream fix exactly (SeaBlock issue #375), so a future
+      Sea Block Continued release will agree on balance. Applies only when Sea Block Continued is
+      installed, and becomes a no-op once that release lands.
+---------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
+Version: 0.6.0
+Date: 2026-08-21
+  Features:
+    - Starter items are now scoped per item. "Player" gives every member their own copy, as
+      before; "Team" hands the item out once, to the first member of a team to spawn. Toggle it
+      per row in the Admin panel's Starter Items tab. Two people on one team no longer start with
+      two full copies of the map's resources while a solo team gets one.
+    - Sea Block support: its starting kit -- landfill, plates, solar panels -- is marked Team
+      automatically. The kit is read from Sea Block itself rather than hardcoded, so it follows
+      your startup settings and which of Bob's and Angel's mods are installed. Armor, weapons, and
+      other mods' personal equipment (FasterStart's construction robots, for instance) stay
+      per-player, so every member still spawns with their own.
+  Bugfixes:
+    - The starter-items list captured the wrong loadout on any mod stack where an overhaul loads
+      after Multi-Team Support. Sea Block sits behind the whole Angel's/Bob's dependency chain, so
+      it always loads last: MTS read the new player's inventory before Sea Block had filled it,
+      recorded the leftovers, and then handed players that stub when they left the landing pen --
+      wiping the real kit they had been given. The capture now happens once every mod has finished
+      handing out items, so the list reflects the map's actual starting loadout.
+    - A player sent back to the landing pen by /mts-disband could have their entire built-up
+      inventory recorded as the map's starter loadout and handed to everyone who spawned
+      afterwards. Only players who have never been on a team are used for the capture now.
+    - An empty starter-items list is no longer taken literally. Previously it emptied the player's
+      inventory and gave nothing back, which on a start like Sea Block -- where spawn is a
+      one-tile island -- left them with no way to recover.
+---------------------------------------------------------------------------------------------------
+Version: 0.5.1
+Date: 2026-08-20
+  Bugfixes:
+    - Crash on load with Space Age, introduced by 0.5.0's localization: the per-team planet and
+      space-connection names passed the team slot as a number, but data-stage localised strings
+      only accept string parameters ("Value must be a string in property tree"). The slot is now
+      passed as a string; rendered names are unchanged. Installs without Space Age were never
+      affected, which is why pre-release testing missed it.
+---------------------------------------------------------------------------------------------------
+Version: 0.5.0
+Date: 2026-08-19
+  Features:
+    - Localization support. Every player-visible string -- chat, commands, dialogs, and all
+      panels -- now renders through locale keys, so each player sees the mod in their own game
+      language on the same server. Log lines, Discord bridge output, and typed data (player and
+      team names) intentionally stay as they were.
+    - Spanish, Russian, and German translations, built on the base game's own terminology and
+      register conventions per language (including full Russian plural forms). One engine limit:
+      the TEAM/GLOBAL chat badge next to player names stays English -- player tags accept only
+      plain text.
+    - /mts-debug locale: admin self-check that verifies every localization key resolves for your
+      language and lists any that would render as "Unknown key: ...".
+  Bugfixes:
+    - The mod description shown in the in-game Mods list used a section name the engine does not
+      recognize, so it never displayed. The Discord URL setting was also missing its description.
+    - The admin panel's starter-items list showed internal ids ("iron-plate") instead of item
+      names, and logistic-import notices showed internal surface ids ("mts-vulcanus-2") instead
+      of planet names.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.66
+Date: 2026-08-19
+  Features:
+    - Fluids tab in Production Stats. A sixth tab pre-loaded with crude oil, petroleum gas,
+      sulfuric acid, light oil, heavy oil, lubricant, water and steam -- seeds the modpack lacks
+      are silently skipped, and the remaining slots take any fluid via the column picker. Fluid
+      production has no quality dimension, so the quality selector stays hidden on this tab and a
+      fluid column always shows its full output.
+    - Quality views in Production Stats. When a quality mod is active, a selector row offers
+      Merged -- the default, summing every tier -- plus one button per quality tier. Tiers are
+      discovered from the modpack's own quality chain, not hardcoded to vanilla's five, and the
+      row shows only tiers some visible team has unlocked or actually produced. Pinning a tier
+      filters the whole table to it, on every time period. In Merged view, a cell whose team has
+      produced non-normal tiers carries a per-quality breakdown tooltip with quality-badged
+      icons; a cell without one has only ever produced normal quality.
+  Bugfixes:
+    - Production Stats counted only normal-quality output. Statistics reads by bare prototype
+      name resolve to normal quality, so a team leaning on quality modules read low everywhere --
+      on the test save the panel showed 108 iron plates where the true merged total was 208. A
+      team going hard on quality looked BEHIND on a panel whose whole job is the race. All-time
+      now reads the engine's merged totals directly; timed periods sum the per-quality series.
+    - Milestones had the identical bug: "first to N" thresholds ignored non-normal production.
+      Teams already past a threshold on merged numbers announce it on the first poll after
+      loading -- a one-time catch-up burst, and the announcements are correct.
+  Optimizations:
+    - Production Stats rebuilds resolve surface ownership once per refresh instead of once per
+      table cell, and fetch one statistics object per team surface instead of one per cell. With
+      many teams and show-offline enabled, a click on the panel previously triggered dozens of
+      full surface scans before reading a single number.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.65
+Date: 2026-08-19
+  Bugfixes:
+    - Multi-level technologies now show their level in the research and awards GUIs. Where a
+      technology covers a span of levels - vanilla's mining and research productivity, and Land
+      Title Registry's land-grant ladder - the engine leaves the level out of the name, so every
+      tier of a family rendered as an identical row with nothing to tell it apart. A team's rows
+      in the research GUIs now carry the level that team last completed, matching the timestamp
+      shown beside them. An awards row carries the family's starting level, because that is the
+      only level whose completion an award actually records. Technologies that hold a single
+      level already carry their own number and are untouched.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.64
+Date: 2026-08-13
+  Features:
+    - Chat mode badge: every chat line now shows which channel it was sent under. A [GLOBAL] or
+      [TEAM] badge sits after your name in chat, on the map, and above multiplayer selection
+      rectangles, so you can tell at a glance whether a teammate's message reached the whole
+      server -- and read that back later in the chat log, which the GLOBAL | TEAM switch alone
+      could never tell you, since it only ever shows the current mode. A "!" shout still carries
+      the [TEAM] badge: it overrides the channel for one message without changing it, and the
+      leading ! on the same line is the marker for those.
+    - Individual Chat Mode (new admin flag, off by default): each player sets their own
+      global/team chat mode instead of the whole team switching together. Flipping the flag
+      never exposes a private conversation -- switching to individual gives every member their
+      team's current mode, and switching back makes a team team-only if any of its members was,
+      counting offline members in both directions.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.63
+Date: 2026-08-07
+  Features:
+    - mts-v1: new get_surface_planet remote call returns the planet a given surface represents,
+      so consumers can map any team surface back to its planet.
+    - mts-v1: new get_team_tag remote call, and the popup_text presets are now exposed to
+      consumers.
+  Bugfixes:
+    - Starter-kit armor sometimes arrived empty. The equipment grid was restored by searching the
+      player's inventory for a same-named armor with an empty grid, so it could load an armor the
+      player already had -- a worn one, or one handed out by a starter mod such as FasterStart --
+      and leave the freshly granted armor empty. MTS now places the armor into a slot it picks and
+      loads that exact stack, so the granted armor is always the one that gets the equipment.
+    - Starter-kit armor is granted at the quality it was captured at. A higher-quality armor has a
+      bigger equipment grid, so copying one as normal quality silently dropped every piece of
+      equipment whose position fell outside the smaller grid.
+---------------------------------------------------------------------------------------------------
+Version: 0.4.62
+Date: 2026-08-04
+  Features:
+    - Team clocks everywhere: a persistent top-bar chip shows your team name and running time
+      (the official server-elapsed time used for records; online time in the tooltip once they
+      differ), every card in the Teams GUI shows that team's clock, and spawn labels carry a
+      minute-resolution clock line. Teams that haven't started show "not started".
+    - Team vs global chat: each TEAM is in global or team-only chat, toggled from a new
+      GLOBAL | TEAM switch at the top of the screen (or /mts-chat). The channel is
+      team-synchronized so one member replying in the wrong mode can't leak a private
+      conversation; switches are announced to the team and every member's switch updates
+      together. Start a message with ! to shout one message globally from team-only mode.
+      Team-only messages (including map pings) never reach the Discord bridge — only global
+      chat is forwarded. Landing-pen spectators always chat globally. Members spectating
+      another team keep team chat (tagged [spectating]), with a notice that other spectators
+      can see those messages too.
+    - Non-competitive mode (new admin flag, off by default) for private servers with
+      mixed-skill groups: admins can give individual teams easier settings via per-team
+      modifiers — first modifier: peaceful biters (applied to all of that team's surfaces).
+      Every change is announced to everyone. A team that ever receives a modifier is
+      permanently marked non-competitive (badge in the admin panel and /mts-modifiers; the
+      mark clears only on disband), and the mode cannot be turned off while any marked team
+      exists — so a briefly-handicapped team can't slip back into a "competitive" game.
+      Record announcements are tagged while the mode is on. Anyone can check every team's
+      settings with /mts-modifiers.
+  Gui:
+    - The top-bar chip and chat switch sit on translucent panels, and HUD text uses a subtle
+      dark halo so it stays readable over bright terrain and busy bases.
+    - The HUD shows a non-competitive tag (with your team's own modifiers) whenever that
+      mode is active, and the Teams GUI title and team cards reflect it too.
+  Bugfixes:
+    - Players accepted into a team now spawn at the team's original spawn point on its home
+      surface, not wherever the accepting member happened to be standing (which could be
+      another planet, a space platform, or a far-away outpost).
+---------------------------------------------------------------------------------------------------
+Version: 0.4.61
+Date: 2026-07-24
+  Features:
+    - Passive radars (new startup setting, on by default): radars keep the area around them visible
+      but no longer run the rotating scan that permanently charts the wider map. Across 20 teams'
+      radar carpets that charting is a major save-file and UPS sink; this bounds it while keeping
+      the local visibility radars are placed for. The standard radar also drops from 300 kW to
+      50 kW (modded radars keep their own power cost, and purpose-built scanner buildings are left
+      alone). Passivized radars are renamed "Passive <Name>" with a matching description.
+  Changes:
+    - Max Teams now defaults to its ceiling: 60 without Space Age, 20 with it. Only affects fresh
+      installs; servers with a stored value keep their setting.
+  Gui:
+    - The teams GUI and production stats show each team's slot number as a dim #N badge, so a team
+      that renamed itself (e.g. slot 1 calling itself "Team 2") can't be mistaken for another slot.
+    - Production stats rows now show how long a fully-offline team has been offline, colour-coded
+      by staleness like the teams GUI activity label, with the per-member last-seen breakdown on
+      hover. The offline check is spectator-aware: a team whose only online member is spectating
+      another team counts as online.
+    - The /mts-disband confirmation now identifies the team unambiguously: team name, slot number,
+      leader, and last activity.
+  Bugfixes:
+    - The disband confirmation can no longer disband the wrong team: if the described team disbands
+      itself and a new team claims the same slot while the dialog sits open, Confirm aborts with a
+      notice instead of disbanding the never-shown new team.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.60
 Date: 2026-07-10
   Features:

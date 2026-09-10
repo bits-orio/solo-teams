@@ -1,6 +1,6 @@
 -- Multi-Team Support - debug.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Admin-only debug task engine. Runs a queue of scheduled one-shot
 -- actions across future ticks. Powers the /mts-debug console command.
@@ -52,6 +52,8 @@ function M.schedule_research(force_names, tech, delay_ticks)
     storage.debug.next_id = id + 1
     storage.debug.tasks[id] = {
         kind    = "research",
+        -- TODO(locale-stage5): display text persisted in storage (shown by
+        -- /mts-debug list); stage 5 decides whether it ever localises.
         label   = string.format("research %s × %d (delay %d)",
                                 tech, #force_names, delay_ticks or 0),
         actions = actions_list,

@@ -10,9 +10,12 @@ local friendship  = require("gui.friendship")
 local remote_api  = require("scripts.remote_api")
 local spawn_labels = require("scripts.spawn_labels")
 local team_clock  = require("scripts.team_clock")
+local team_modifiers = require("scripts.team_modifiers")
+local chat_channel = require("scripts.chat_channel")
 local pause_state = require("scripts.pause.state")
 local buddy_store = require("scripts.buddy_store")
 local pen_info_panel = require("gui.pen_info_panel")
+local starter_scope = require("scripts.starter_scope")
 
 local M = {}
 
@@ -146,6 +149,7 @@ function M.create_team_pool()
     storage.team_leader            = {}
     storage.team_clock_start       = {}
     storage.team_looking_for_more  = {}
+    storage.team_slot_generation   = {}
 
     for i = 1, max do
         local force_name = "team-" .. i
@@ -170,6 +174,7 @@ function M.create_team_pool()
         game.forces.player.set_friend(new_force, true)
         spectator.setup_force(new_force)
         storage.team_pool[i]           = "available"
+        -- TODO(locale-stage5): display text persisted in storage stays plain.
         storage.team_names[force_name] = string.format("Team %02d", i)
         log("[multi-team-support] created team slot: " .. force_name)
     end
@@ -187,7 +192,7 @@ function M.claim_team_slot(player, opts)
         if storage.team_pool[i] == "available" then slot = i; break end
     end
     if not slot then
-        player.print("No team slots available. All " .. max_teams() .. " teams are occupied.")
+        player.print({"mts-chat.no-team-slots", max_teams()})
         return nil
     end
 
@@ -250,6 +255,7 @@ function M.wipe_slot_state(force_name)
     if not slot then return end
 
     storage.team_names = storage.team_names or {}
+    -- TODO(locale-stage5): display text persisted in storage stays plain.
     storage.team_names[force_name] = string.format("Team %02d", slot)
 
     strip_team_from_records(storage.tech_records,      force_name)
@@ -261,6 +267,10 @@ function M.wipe_slot_state(force_name)
     if storage.left_teams then
         for _, teams in pairs(storage.left_teams) do teams[force_name] = nil end
     end
+
+    -- The next team to occupy this slot must get its own copy of the team-scoped
+    -- starter items, not inherit the previous occupant's "already granted" mark.
+    starter_scope.clear_team_kit(force_name)
 
     storage.team_looking_for_more = storage.team_looking_for_more or {}
     storage.team_looking_for_more[force_name] = nil
@@ -277,7 +287,7 @@ function M.wipe_slot_state(force_name)
     for _, req_idx in ipairs(buddy_store.clear_for_team(force_name)) do
         local requester = game.get_player(req_idx)
         if requester and requester.connected then
-            requester.print("The team you requested to join is no longer available.")
+            requester.print({"mts-chat.requested-team-unavailable"})
         end
     end
 
@@ -297,11 +307,20 @@ function M.release_team_slot(force_name)
 
     storage.team_pool = storage.team_pool or {}
     storage.team_pool[slot] = "available"
+
+    -- Bump the slot generation so anything that captured this slot's identity
+    -- while it was occupied (e.g. an open /mts-disband confirm dialog) can
+    -- detect that the slot has since been recycled by a different team.
+    storage.team_slot_generation = storage.team_slot_generation or {}
+    storage.team_slot_generation[slot] = (storage.team_slot_generation[slot] or 0) + 1
+
     storage.team_leader = storage.team_leader or {}
     storage.team_leader[force_name] = nil
     storage.team_clock_start = storage.team_clock_start or {}
     storage.team_clock_start[force_name] = nil
     team_clock.on_release(force_name)
+    team_modifiers.on_release(force_name)
+    chat_channel.on_release(force_name)
 
     M.wipe_slot_state(force_name)
 
@@ -431,13 +450,13 @@ function M.remove_from_team(player)
         if spec_force then player.force = spec_force end
         local deleted  = M.cleanup_force_surfaces(old_force_name)
         M.release_team_slot(old_force_name)
-        local msg = "[Team] " .. team_tag .. " has been disbanded."
-        if #deleted > 0 then msg = msg .. " Their base has been cleaned up." end
-        helpers.broadcast(msg)
+        helpers.broadcast({"",
+            {"mts-chat.team-disbanded", team_tag},
+            #deleted > 0 and {"", " ", {"mts-chat.team-disbanded-base-cleaned"}} or ""})
     else
         local spec_force = game.forces["spectator"]
         if spec_force then player.force = spec_force end
-        helpers.broadcast("[Team] " .. cn_player .. " has left " .. team_tag .. ".")
+        helpers.broadcast({"mts-chat.team-left", cn_player, team_tag})
 
         if is_leader then
             local new_leader = pick_new_leader(old_force, player.index)
@@ -448,10 +467,10 @@ function M.remove_from_team(player)
                 local cn_leader = helpers.colored_name(new_leader.name, new_leader.chat_color)
                 for _, member in pairs(old_force.players) do
                     if member.connected then
-                        member.print(cn_leader .. " is now the leader of " .. team_tag .. ".")
+                        member.print({"mts-chat.team-new-leader", cn_leader, team_tag})
                     end
                 end
-                helpers.broadcast("[Team] " .. cn_leader .. " now leads " .. team_tag .. ".")
+                helpers.broadcast({"mts-chat.team-new-leader-broadcast", cn_leader, team_tag})
             end
         end
     end

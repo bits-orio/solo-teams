@@ -1,6 +1,6 @@
 -- Multi-Team Support - platformer_compat.lua
 -- Author: bits-orio
--- License: GPL-3.0-or-later
+-- License: MIT
 --
 -- Optional integration with the "Platformer" mod.
 -- When Platformer is active every player spawns on their own dedicated
@@ -61,7 +61,7 @@ function platformer.setup_player_platform(player)
     })
 
     if not platform then
-        player.print("[multi-team-support] Could not create personal space platform.")
+        player.print({"mts-chat.platform-create-failed"})
         return
     end
 
